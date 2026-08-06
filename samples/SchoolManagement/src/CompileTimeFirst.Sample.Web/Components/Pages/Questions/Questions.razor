@@ -1,0 +1,127 @@
+@page "/questions"
+@rendermode InteractiveServer
+@inject QuestionsViewModel ViewModel
+
+<PageTitle>Create Question</PageTitle>
+
+<h1>Create Question</h1>
+
+@if (ViewModel.SuccessMessage is not null)
+{
+    <div class="alert alert-success">@ViewModel.SuccessMessage</div>
+}
+
+@if (ViewModel.ErrorMessage is not null)
+{
+    <div class="alert alert-danger">@ViewModel.ErrorMessage</div>
+}
+
+<div class="card">
+    <div class="card-body">
+        <EditForm Model="ViewModel" OnValidSubmit="HandleCreateAsync">
+            <div class="mb-3">
+                <label for="statement" class="form-label">Statement</label>
+                <InputTextArea id="statement" class="form-control" rows="5"
+                               @bind-Value="ViewModel.Statement" disabled="@ViewModel.IsBusy" />
+            </div>
+
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label for="subject" class="form-label">Subject</label>
+                    <InputSelect id="subject" class="form-select" @bind-Value="ViewModel.SubjectId" disabled="@ViewModel.IsBusy">
+                        <option value="">Select a subject</option>
+                        @foreach (var subject in ViewModel.Subjects)
+                        {
+                            <option value="@subject.Id">@subject.Name</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="grade" class="form-label">Grade</label>
+                    <InputSelect id="grade" class="form-select" @bind-Value="ViewModel.GradeId" disabled="@ViewModel.IsBusy">
+                        <option value="">Select a grade</option>
+                        @foreach (var grade in ViewModel.Grades)
+                        {
+                            <option value="@grade.Id">@grade.Name</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="questionType" class="form-label">Type</label>
+                    <InputSelect id="questionType" class="form-select" @bind-Value="ViewModel.Type"
+                                 @bind-Value:after="ViewModel.ApplyTypeDefaults" disabled="@ViewModel.IsBusy">
+                        @foreach (var type in Enum.GetValues<QuestionType>())
+                        {
+                            <option value="@type">@type</option>
+                        }
+                    </InputSelect>
+                </div>
+            </div>
+
+            @if (ViewModel.UsesOptions)
+            {
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0">Options</h5>
+                    @if (ViewModel.AllowsCustomOptions)
+                    {
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                @onclick="ViewModel.AddOption" disabled="@ViewModel.IsBusy">
+                            Add option
+                        </button>
+                    }
+                </div>
+
+                @foreach (var option in ViewModel.Options)
+                {
+                    <div class="input-group mb-2">
+                        <span class="input-group-text">@option.Order</span>
+                        <InputText class="form-control" @bind-Value="option.Text"
+                                   disabled="@(ViewModel.IsBusy || ViewModel.Type == QuestionType.TrueOrFalse)" />
+                        <span class="input-group-text">
+                            @if (ViewModel.Type == QuestionType.MultipleChoice)
+                            {
+                                <InputCheckbox class="form-check-input mt-0 me-2" @bind-Value="option.IsCorrect"
+                                               disabled="@ViewModel.IsBusy" />
+                            }
+                            else
+                            {
+                                <input class="form-check-input mt-0 me-2" type="radio" name="correctOption"
+                                       checked="@option.IsCorrect" @onchange="@(() => ViewModel.MarkSingleCorrect(option))"
+                                       disabled="@ViewModel.IsBusy" />
+                            }
+                            Correct
+                        </span>
+                        @if (ViewModel.AllowsCustomOptions)
+                        {
+                            <button type="button" class="btn btn-outline-danger"
+                                    @onclick="@(() => ViewModel.RemoveOption(option))"
+                                    disabled="@(ViewModel.IsBusy || ViewModel.Options.Count <= 2)">
+                                Remove
+                            </button>
+                        }
+                    </div>
+                }
+            }
+
+            <button type="submit" class="btn btn-primary mt-3" disabled="@ViewModel.IsBusy">
+                @if (ViewModel.IsBusy)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                }
+                Create question
+            </button>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await ViewModel.LoadAsync();
+    }
+
+    private async Task HandleCreateAsync()
+    {
+        await ViewModel.CreateAsync();
+    }
+}

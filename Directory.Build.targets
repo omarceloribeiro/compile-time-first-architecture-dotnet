@@ -1,0 +1,15 @@
+<Project>
+  <Target
+    Name="RunDependencyInjectionValidation"
+    AfterTargets="Build"
+    Condition="
+      '$(ValidateDependencyInjectionOnBuild)' == 'true'
+      and '$(SkipDependencyInjectionValidation)' != 'true'
+      and '$(DesignTimeBuild)' != 'true'
+      and '$(IsCrossTargetingBuild)' != 'true'
+      and '$(TargetPath)' != ''
+      and Exists('$(TargetPath)')">
+    <Message Importance="high" Text="Validating dependency injection for $(MSBuildProjectName)..." />
+    <Exec WorkingDirectory="$(TargetDir)" Command="dotnet &quot;$(TargetPath)&quot; --validate-di" />
+  </Target>
+</Project>

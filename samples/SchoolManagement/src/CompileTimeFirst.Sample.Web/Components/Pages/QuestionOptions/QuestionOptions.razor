@@ -1,0 +1,159 @@
+@page "/question-options"
+@rendermode InteractiveServer
+@inject QuestionOptionsViewModel ViewModel
+
+<PageTitle>Question Options</PageTitle>
+
+<h1>Question Options</h1>
+
+@if (ViewModel.SuccessMessage is not null)
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        @ViewModel.SuccessMessage
+        <button type="button" class="btn-close" @onclick="@(() => { ViewModel.SuccessMessage = null; })"></button>
+    </div>
+}
+
+@if (ViewModel.ErrorMessage is not null)
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        @ViewModel.ErrorMessage
+        <button type="button" class="btn-close" @onclick="@(() => { ViewModel.ErrorMessage = null; })"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-5">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Questions (@ViewModel.Questions.Count)</h5>
+                @if (ViewModel.Questions.Count == 0)
+                {
+                    <p class="text-muted">No questions found. Create some questions first.</p>
+                }
+                else
+                {
+                    <div class="list-group" style="max-height: 600px; overflow-y: auto;">
+                        @foreach (var question in ViewModel.Questions)
+                        {
+                            <button type="button"
+                                    class="list-group-item list-group-item-action @(ViewModel.SelectedQuestionId == question.Id ? "active" : "")"
+                                    @onclick="@(() => HandleSelectQuestionAsync(question.Id))">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">
+                                        @{
+                                            var preview = question.Statement.Length > 50
+                                                ? question.Statement.Substring(0, 50) + "..."
+                                                : question.Statement;
+                                        }
+                                        @preview
+                                    </h6>
+                                    <small>@question.Type</small>
+                                </div>
+                                <small>@question.SubjectName - @question.GradeName</small>
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-7">
+        @if (ViewModel.SelectedQuestionId.HasValue)
+        {
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Add Option</h5>
+                    <EditForm Model="ViewModel" OnValidSubmit="HandleCreateAsync">
+                        <div class="mb-3">
+                            <label for="optionText" class="form-label">Text</label>
+                            <InputTextArea id="optionText" class="form-control" rows="3" @bind-Value="ViewModel.NewText" disabled="@ViewModel.IsBusy" />
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check">
+                                    <InputCheckbox id="optionIsCorrect" class="form-check-input" @bind-Value="ViewModel.NewIsCorrect" disabled="@ViewModel.IsBusy" />
+                                    <label for="optionIsCorrect" class="form-check-label">Is Correct Answer</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="optionOrder" class="form-label">Order</label>
+                                <InputNumber id="optionOrder" class="form-control" @bind-Value="ViewModel.NewOrder" disabled="@ViewModel.IsBusy" />
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary" disabled="@ViewModel.IsBusy">
+                            @if (ViewModel.IsBusy)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                            }
+                            Add Option
+                        </button>
+                    </EditForm>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Options (@ViewModel.Options.Count)</h5>
+                    @if (ViewModel.Options.Count == 0)
+                    {
+                        <p class="text-muted">No options yet.</p>
+                    }
+                    else
+                    {
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th style="width: 60px;">Order</th>
+                                    <th>Text</th>
+                                    <th style="width: 100px;">Correct</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var option in ViewModel.Options)
+                                {
+                                    <tr class="@(option.IsCorrect ? "table-success" : "")">
+                                        <td><strong>@option.Order</strong></td>
+                                        <td>@option.Text</td>
+                                        <td>
+                                            @if (option.IsCorrect)
+                                            {
+                                                <span class="badge bg-success">✓ Correct</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-info">
+                <strong>Select a question</strong> from the list to manage its options.
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await ViewModel.LoadAsync();
+    }
+
+    private async Task HandleSelectQuestionAsync(Guid questionId)
+    {
+        ViewModel.ErrorMessage = null;
+        ViewModel.SuccessMessage = null;
+        await ViewModel.SelectQuestionAsync(questionId);
+    }
+
+    private async Task HandleCreateAsync()
+    {
+        await ViewModel.CreateAsync();
+    }
+}

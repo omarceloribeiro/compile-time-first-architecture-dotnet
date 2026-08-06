@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../CompileTimeFirst.Sample.Domain/CompileTimeFirst.Sample.Domain.csproj" />
+    <ProjectReference Include="../CompileTimeFirst.Sample.ReadModel/CompileTimeFirst.Sample.ReadModel.csproj" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.0" />
+  </ItemGroup>
+</Project>

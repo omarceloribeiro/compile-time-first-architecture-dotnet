@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\CompileTimeFirst.Sample.Application\CompileTimeFirst.Sample.Application.csproj" />
+    <ProjectReference Include="..\CompileTimeFirst.Sample.Data\CompileTimeFirst.Sample.Data.csproj" />
+    <ProjectReference Include="..\CompileTimeFirst.Sample.Web.Client\CompileTimeFirst.Sample.Web.Client.csproj" />
+
+    <!-- Analyzer para garantir a arquitetura Read-Only no UI -->
+    <ProjectReference Include="..\CompileTimeFirst.Sample.Analyzers\CompileTimeFirst.Sample.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.OData" Version="9.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Components\Pages\Demo\" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <ValidateDependencyInjectionOnBuild>true</ValidateDependencyInjectionOnBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../../../eng/DependencyInjectionGraphValidator.cs"
+             Link="Validation/DependencyInjectionGraphValidator.cs" />
+  </ItemGroup>
+
+</Project>

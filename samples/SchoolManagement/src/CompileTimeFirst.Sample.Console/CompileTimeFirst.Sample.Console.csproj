@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <ValidateDependencyInjectionOnBuild>true</ValidateDependencyInjectionOnBuild>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../CompileTimeFirst.Sample.Application/CompileTimeFirst.Sample.Application.csproj" />
+    <ProjectReference Include="../CompileTimeFirst.Sample.Data/CompileTimeFirst.Sample.Data.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../../../eng/DependencyInjectionGraphValidator.cs"
+             Link="Validation/DependencyInjectionGraphValidator.cs" />
+  </ItemGroup>
+</Project>

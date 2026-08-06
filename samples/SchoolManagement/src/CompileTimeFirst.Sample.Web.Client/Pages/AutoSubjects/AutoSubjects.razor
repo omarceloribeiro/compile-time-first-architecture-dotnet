@@ -1,0 +1,39 @@
+@page "/auto-subjects"
+@rendermode InteractiveAuto
+@inject AutoSubjectsViewModel ViewModel
+
+<PageTitle>Interactive Auto OData</PageTitle>
+
+<h1>Interactive Auto/OData</h1>
+
+<div class="alert alert-info">
+    Active provider: <strong>@ViewModel.ProviderName</strong>
+</div>
+
+@if (ViewModel.ErrorMessage is not null)
+{
+    <div class="alert alert-danger">@ViewModel.ErrorMessage</div>
+}
+else if (ViewModel.Items.Count == 0)
+{
+    <p class="text-muted">No active subjects found.</p>
+}
+else
+{
+    <ul class="list-group">
+        @foreach (var subject in ViewModel.Items)
+        {
+            <li class="list-group-item d-flex justify-content-between">
+                <span>@subject.Name</span>
+                <small class="text-muted">@subject.Id</small>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await ViewModel.LoadAsync();
+    }
+}

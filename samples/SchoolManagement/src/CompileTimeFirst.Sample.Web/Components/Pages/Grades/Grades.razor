@@ -1,0 +1,86 @@
+@page "/grades"
+@rendermode InteractiveServer
+@inject GradesViewModel ViewModel
+
+<PageTitle>Grades</PageTitle>
+
+<h1>Grades</h1>
+
+@if (ViewModel.SuccessMessage is not null)
+{
+    <div class="alert alert-success">@ViewModel.SuccessMessage</div>
+}
+
+@if (ViewModel.ErrorMessage is not null)
+{
+    <div class="alert alert-danger">@ViewModel.ErrorMessage</div>
+}
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Create New Grade</h5>
+        <EditForm Model="ViewModel" OnValidSubmit="HandleCreateAsync">
+            <div class="row">
+                <div class="col-md-8 mb-3">
+                    <label for="gradeName" class="form-label">Name</label>
+                    <InputText id="gradeName" class="form-control" @bind-Value="ViewModel.NewName" disabled="@ViewModel.IsBusy" />
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="gradeOrder" class="form-label">Order</label>
+                    <InputNumber id="gradeOrder" class="form-control" @bind-Value="ViewModel.NewOrder" disabled="@ViewModel.IsBusy" />
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary" disabled="@ViewModel.IsBusy">
+                @if (ViewModel.IsBusy)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                }
+                Create
+            </button>
+        </EditForm>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">Active Grades (@ViewModel.Items.Count)</h5>
+        @if (ViewModel.Items.Count == 0)
+        {
+            <p class="text-muted">No grades found.</p>
+        }
+        else
+        {
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Order</th>
+                        <th>Name</th>
+                        <th>ID</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in ViewModel.Items)
+                    {
+                        <tr>
+                            <td><strong>@item.Order</strong></td>
+                            <td>@item.Name</td>
+                            <td><small class="text-muted">@item.Id</small></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await ViewModel.LoadAsync();
+    }
+
+    private async Task HandleCreateAsync()
+    {
+        await ViewModel.CreateAsync();
+    }
+}

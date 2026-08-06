@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/CompileTimeFirst.Sample.Application/CompileTimeFirst.Sample.Application.csproj" />
+    <ProjectReference Include="../../src/CompileTimeFirst.Sample.Analyzers/CompileTimeFirst.Sample.Analyzers.csproj" />
+    <ProjectReference Include="../../src/CompileTimeFirst.Sample.Data/CompileTimeFirst.Sample.Data.csproj" />
+    <ProjectReference Include="../../src/CompileTimeFirst.Sample.Web/CompileTimeFirst.Sample.Web.csproj" />
+    <ProjectReference Include="../../src/CompileTimeFirst.Sample.Web.Client/CompileTimeFirst.Sample.Web.Client.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.10" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+    <PackageReference Include="xunit" Version="2.7.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.7">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+</Project>
