@@ -26,11 +26,12 @@ Prove that one Blazor page and ViewModel can execute the same portable LINQ quer
 
 ## Acceptance criteria
 
-- [ ] The same component and ViewModel run in Server and WebAssembly.
-- [ ] The browser calls `/odata/Subjects` through Microsoft.OData.Client.
-- [ ] Filtering and ordering are visible in the emitted OData request.
-- [ ] The server and client executors pass the same contract tests for supported terminal operations.
-- [ ] Build, DI validation and tests pass.
+- [x] The same component and ViewModel run in Server and WebAssembly.
+- [x] Microsoft.OData.Client translates the browser query for `/odata/Subjects`.
+- [x] Browser HttpClient executes and materializes the request without synchronous waits.
+- [x] Filtering and ordering are visible in the emitted OData request.
+- [x] The server and client executors pass the same contract tests for supported terminal operations.
+- [x] Build, DI validation and tests pass.
 
 ## Outside the spike
 

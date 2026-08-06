@@ -14,8 +14,7 @@ public static class ClientServices
 
         var serviceRoot = new Uri(baseAddress, "odata/");
         services.AddScoped(_ => new HttpClient { BaseAddress = baseAddress });
-        services.AddScoped<IReadSchoolDbFactory>(provider =>
-            new ODataReadSchoolDbFactory(serviceRoot, provider.GetRequiredService<HttpClient>()));
+        services.AddScoped<IReadSchoolDbFactory>(_ => new ODataReadSchoolDbFactory(serviceRoot));
         services.AddScoped<IReadProviderInfo>(provider =>
             (IReadProviderInfo)provider.GetRequiredService<IReadSchoolDbFactory>());
         services.AddScoped<IReadQueryExecutor, ODataReadQueryExecutor>();

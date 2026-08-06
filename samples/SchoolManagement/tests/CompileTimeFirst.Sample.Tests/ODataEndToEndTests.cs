@@ -33,9 +33,8 @@ public sealed class ODataEndToEndTests
             BaseAddress = new Uri("https://localhost/")
         });
         var readFactory = new ODataReadSchoolDbFactory(
-            new Uri(httpClient.BaseAddress!, "odata/"),
-            httpClient);
-        var executor = new ODataReadQueryExecutor();
+            new Uri(httpClient.BaseAddress!, "odata/"));
+        var executor = new ODataReadQueryExecutor(httpClient);
 
         await using var db = await readFactory.CreateAsync();
         var subjects = await executor.ToListAsync(
