@@ -75,6 +75,31 @@ Use direct `IReadDb` queries for incidental UI needs:
 - simple grids;
 - one-use projections.
 
+Every incidental read terminates through `IReadQueryExecutor`. Do not call EF Core, OData or another
+provider's terminal extensions from a ViewModel or component.
+
+Use the terminal dictated by the control in the feature specification:
+
+- lookup by identifier → `FirstOrDefaultAsync`;
+- dropdown → `ToListAsync`;
+- data grid, data table, result list, autocomplete or history → `ToPageAsync`;
+- export → read/export use case.
+
+When an incidental read explicitly needs uniqueness, count or existence, use
+`IReadQueryExecutor.SingleOrDefaultAsync`, `CountAsync` or `AnyAsync`. Never call the corresponding
+EF Core terminal extensions directly from a ViewModel or component.
+
+The specification chooses the control. Do not replace a dropdown with an autocomplete, invent row
+thresholds or add adaptive behavior unless the specification requires it.
+
+Every query passed to `ToPageAsync` must define deterministic ordering first. When the primary sort
+key is not unique, add a stable unique tie-breaker such as `ThenBy(x => x.Id)`.
+
+Keep `IQueryable<T>` and the read scope in local variables. Compose and materialize the query before
+the operation returns. Never store `IQueryable<T>`, `IReadDb`, a read scope or a DbContext as UI state,
+and never bind a live query provider directly to a visual component. Execute count and page queries
+sequentially when they share one DbContext.
+
 Do not create one-use classes named `GetXFormUseCase`, `XDropdownService`, `XPageQuery` or `XReadModel` unless there is a demonstrated reuse or business reason.
 
 Use a read use case for:
@@ -149,6 +174,9 @@ Prefer:
 - strongly typed IDs and requests;
 - source-generated JSON/logging/regex where useful;
 - explicit code over reflection.
+
+In analyzers, prefer Roslyn semantic symbols and `SymbolEqualityComparer` over syntax text,
+display-name prefixes or other string matching whenever type or member identity is available.
 
 Investigate trimming and AOT warnings. Do not suppress them without documenting why.
 

@@ -6,6 +6,7 @@
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../CompileTimeFirst.Sample.Analyzers/CompileTimeFirst.Sample.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <ProjectReference Include="../CompileTimeFirst.Sample.ReadModel/CompileTimeFirst.Sample.ReadModel.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.10" />
     <PackageReference Include="Microsoft.OData.Client" Version="8.4.4" />

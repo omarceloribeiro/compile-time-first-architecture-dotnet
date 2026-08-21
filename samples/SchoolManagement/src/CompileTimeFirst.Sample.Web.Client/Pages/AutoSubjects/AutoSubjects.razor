@@ -29,6 +29,18 @@ else
             </li>
         }
     </ul>
+
+    <nav class="d-flex justify-content-between align-items-center mt-3" aria-label="Subjects pages">
+        <button class="btn btn-outline-secondary" disabled="@(!ViewModel.HasPreviousPage)"
+                @onclick="LoadPreviousPageAsync">
+            Previous
+        </button>
+        <span>Page @(ViewModel.CurrentPage + 1) of @ViewModel.TotalPages (@ViewModel.TotalCount items)</span>
+        <button class="btn btn-outline-secondary" disabled="@(!ViewModel.HasNextPage)"
+                @onclick="LoadNextPageAsync">
+            Next
+        </button>
+    </nav>
 }
 
 @code {
@@ -36,4 +48,8 @@ else
     {
         await ViewModel.LoadAsync();
     }
+
+    private Task LoadPreviousPageAsync() => ViewModel.LoadAsync(ViewModel.CurrentPage - 1);
+
+    private Task LoadNextPageAsync() => ViewModel.LoadAsync(ViewModel.CurrentPage + 1);
 }

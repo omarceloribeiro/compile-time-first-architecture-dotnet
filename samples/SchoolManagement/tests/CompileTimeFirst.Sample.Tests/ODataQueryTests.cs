@@ -56,6 +56,42 @@ public sealed class ODataQueryTests
         Assert.Contains("$skip=1", requests[1].Query, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Browser_executor_requests_only_one_page_and_its_total_count()
+    {
+        Uri? requestedUri = null;
+        using var httpClient = new HttpClient(new StubHandler((request, _) =>
+        {
+            requestedUri = request.RequestUri;
+            const string json = """
+                {
+                  "@odata.count": 3,
+                  "value": [{ "Id": "22222222-2222-2222-2222-222222222222", "Name": "Mathematics", "IsActive": true }]
+                }
+                """;
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            };
+        }));
+        var factory = new ODataReadSchoolDbFactory(new Uri("https://localhost/odata/"));
+        var executor = new ODataReadQueryExecutor(httpClient);
+
+        await using var db = await factory.CreateAsync();
+        var page = await executor.ToPageAsync(
+            db.Subjects.OrderBy(x => x.Name),
+            skip: 1,
+            take: 1);
+
+        Assert.Equal(["Mathematics"], page.Items.Select(x => x.Name));
+        Assert.Equal(3, page.TotalCount);
+        Assert.NotNull(requestedUri);
+        Assert.Contains("$count=true", requestedUri.Query, StringComparison.Ordinal);
+        Assert.Contains("$skip=1", requestedUri.Query, StringComparison.Ordinal);
+        Assert.Contains("$top=1", requestedUri.Query, StringComparison.Ordinal);
+    }
+
     private sealed class StubHandler(
         Func<HttpRequestMessage, int, HttpResponseMessage> responseFactory) : HttpMessageHandler
     {

@@ -25,8 +25,8 @@ Examples:
 
 | Need | Pattern |
 |---|---|
-| Fill a subject dropdown | Direct read |
-| Load a screen-specific grid | Direct read |
+| Fill a subject dropdown | Direct read + `ToListAsync` |
+| Load a screen-specific grid | Direct read + `ToPageAsync` |
 | Create a lesson | Write use case |
 | Mark a lesson as delivered | Write use case |
 | School dashboard | Read use case |
@@ -57,10 +57,45 @@ ViewModels may query `IReadDb` directly. This is intentionally coupled to the UI
 ViewModel
   → IReadDbFactory
   → IReadDb
-  → IQueryable<T>
+  → local IQueryable<T>
+  → IReadQueryExecutor
+  → materialized UI state
 ```
 
 The ViewModel may change when the screen changes. The application use case does not.
+
+`IReadQueryExecutor` is the terminal path for every incidental read. The ViewModel does not call
+EF Core, OData or another provider's terminal extensions directly. Dependency injection selects the
+executor implementation for the current runtime.
+
+Use the terminal selected by the feature specification:
+
+| Specified UI need | Terminal |
+|---|---|
+| Lookup by identifier | `FirstOrDefaultAsync` |
+| Dropdown | `ToListAsync` |
+| Data grid or data table | `ToPageAsync` |
+| Result list | `ToPageAsync` |
+| Autocomplete | `ToPageAsync` |
+| History | `ToPageAsync` |
+| Export | Read/export use case |
+
+The specification chooses the control. An agent does not replace a dropdown with an autocomplete,
+invent row thresholds or add adaptive behavior unless the feature specification requests it.
+
+The query and read scope are operation-local:
+
+```text
+open read scope
+  → compose IQueryable
+  → execute through IReadQueryExecutor
+  → materialize result
+  → dispose read scope
+```
+
+Never store an `IQueryable<T>`, read scope or DbContext in ViewModel/component state. Never pass a
+live query provider to a visual component. A grid load callback composes and executes one page
+inside its operation and gives the component only the materialized rows and total count.
 
 ### 4.2 Business reads
 
@@ -86,6 +121,7 @@ The ViewModel is the system boundary. It may contain:
 - mapping from screen model to use-case request.
 
 The ViewModel must never persist directly.
+Its durable UI state contains materialized values, never `IQueryable<T>`, a read scope or a DbContext.
 
 ## 6. Read-only context
 
@@ -97,7 +133,7 @@ The read context:
 - may later point to a read replica;
 - exposes only approved read surfaces.
 
-## 7. Interactive Auto and OData
+## 7. Render-mode-independent terminals and Interactive Auto
 
 A shared `IReadDb` contract can be implemented by two providers:
 
@@ -108,7 +144,17 @@ Interactive WASM   → OData IQueryable   → HTTP → EF Core → SQL
 
 Portable queries use the common subset of LINQ supported by both providers. Async terminal execution is abstracted by `IReadQueryExecutor`.
 
-This is an optional advanced pattern. Validate OData, trimming and AOT compatibility in a dedicated spike before adopting it broadly.
+The executor contract is the standard incidental-read terminal even in a server-only application.
+Providing the OData/browser implementation is an optional capability. This keeps feature code
+independent from its current render mode and allows a Server component to move to WebAssembly or
+Interactive Auto without replacing provider-specific terminals.
+
+`ToPageAsync` preserves paging before materialization in both runtimes. The EF implementation counts
+and loads the requested page sequentially on the same context. The OData implementation requests
+`$count`, `$skip` and `$top` and materializes through browser `HttpClient`.
+
+Validate authentication, OData limits, trimming and AOT compatibility before enabling the client
+provider in production.
 
 ## 8. Exports
 

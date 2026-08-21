@@ -43,7 +43,7 @@
 
 <div class="card">
     <div class="card-body">
-        <h5 class="card-title">Active Grades (@ViewModel.Items.Count)</h5>
+        <h5 class="card-title">Active Grades (@ViewModel.TotalCount)</h5>
         @if (ViewModel.Items.Count == 0)
         {
             <p class="text-muted">No grades found.</p>
@@ -69,6 +69,18 @@
                     }
                 </tbody>
             </table>
+
+            <nav class="d-flex justify-content-between align-items-center" aria-label="Grades pages">
+                <button class="btn btn-outline-secondary" disabled="@(!ViewModel.HasPreviousPage)"
+                        @onclick="LoadPreviousPageAsync">
+                    Previous
+                </button>
+                <span>Page @(ViewModel.CurrentPage + 1) of @ViewModel.TotalPages</span>
+                <button class="btn btn-outline-secondary" disabled="@(!ViewModel.HasNextPage)"
+                        @onclick="LoadNextPageAsync">
+                    Next
+                </button>
+            </nav>
         }
     </div>
 </div>
@@ -83,4 +95,8 @@
     {
         await ViewModel.CreateAsync();
     }
+
+    private Task LoadPreviousPageAsync() => ViewModel.LoadAsync(ViewModel.CurrentPage - 1);
+
+    private Task LoadNextPageAsync() => ViewModel.LoadAsync(ViewModel.CurrentPage + 1);
 }

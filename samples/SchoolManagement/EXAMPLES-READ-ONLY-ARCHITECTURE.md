@@ -27,20 +27,31 @@ public class ProductsViewModel
     }
 
     public List<ProductReadItem> Items { get; private set; } = new();
+    public int CurrentPage { get; private set; }
+    public int TotalCount { get; private set; }
+    public const int PageSize = 20;
     public string NewName { get; set; } = string.Empty;
     public bool IsBusy { get; private set; }
     public string? ErrorMessage { get; set; }
     public string? SuccessMessage { get; set; }
 
-    // ✅ CORRETO: Usa IReadQueryExecutor.ToListAsync()
-    public async Task LoadAsync()
+    // ✅ CORRETO: tabela de dados usa IReadQueryExecutor.ToPageAsync()
+    public async Task LoadAsync(int page = 0)
     {
         IsBusy = true;
         try
         {
-            using var db = await _readDbFactory.CreateAsync();
-            Items = await _queryExecutor.ToListAsync(
-                db.Products.Where(p => p.IsActive).OrderBy(p => p.Name));
+            await using var db = await _readDbFactory.CreateAsync();
+            var result = await _queryExecutor.ToPageAsync(
+                db.Products
+                    .Where(p => p.IsActive)
+                    .OrderBy(p => p.Name)
+                    .ThenBy(p => p.Id),
+                page * PageSize,
+                PageSize);
+            Items = result.Items.ToList();
+            TotalCount = result.TotalCount;
+            CurrentPage = page;
         }
         finally
         {
@@ -51,7 +62,7 @@ public class ProductsViewModel
     // ✅ CORRETO: Usa IReadQueryExecutor.FirstOrDefaultAsync()
     public async Task<ProductReadItem?> GetByIdAsync(Guid id)
     {
-        using var db = await _readDbFactory.CreateAsync();
+        await using var db = await _readDbFactory.CreateAsync();
         return await _queryExecutor.FirstOrDefaultAsync(
             db.Products.Where(p => p.Id == id));
     }
@@ -102,6 +113,7 @@ namespace CompileTimeFirst.Sample.Web.Components.Pages.BadExample;
 public class BadProductsViewModel
 {
     private readonly SchoolDbContext _dbContext;
+    private IQueryable<Product>? _query; // ❌ ERRO CTFA004: query não pode ser estado da UI
 
     // ❌ ERRO CTFA001: Não pode injetar SchoolDbContext diretamente!
     // Deveria usar IReadSchoolDbFactory
@@ -149,6 +161,8 @@ Use 'IReadSchoolDbFactory' para leitura.
 CTFA002: Não use 'ToListAsync()' do EF Core. Use 'IReadQueryExecutor.ToListAsync()' para manter a abstração de leitura.
 
 CTFA003: Não use 'FirstOrDefaultAsync()' do EF Core. Use 'IReadQueryExecutor.FirstOrDefaultAsync()' para manter a abstração de leitura.
+
+CTFA004: Não armazene IQueryable, read scope ou read DbContext em campos/propriedades da UI.
 ```
 
 ## ✅ Exemplo 3: Componente Blazor Correto
@@ -327,7 +341,7 @@ public class CreateProductUseCase : UseCaseBase<CreateProductRequest, CreateProd
 
 | Camada | Pode Injetar | Pode Usar | Exemplo |
 |--------|--------------|-----------|---------|
-| **ViewModels** | ✅ `IReadSchoolDbFactory`<br>✅ `IReadQueryExecutor`<br>✅ `IXxxUseCase` | ❌ `SchoolDbContext`<br>❌ `ToListAsync()` EF<br>❌ `SaveChangesAsync()` | `ProductsViewModel` |
+| **ViewModels** | ✅ `IReadSchoolDbFactory`<br>✅ `IReadQueryExecutor`<br>✅ `IXxxUseCase` | ❌ `SchoolDbContext`<br>❌ terminais EF<br>❌ query/read scope como estado<br>❌ `SaveChangesAsync()` | `ProductsViewModel` |
 | **Componentes Blazor** | ✅ `XxxViewModel` | ❌ `DbContext`<br>❌ `IDbContextFactory` | `Products.razor` |
 | **UseCases** | ✅ `IDbContextFactory<SchoolDbContext>` | ✅ `SaveChangesAsync()`<br>✅ EF Core completo | `CreateProductUseCase` |
 | **ReadStore** | ✅ `IDbContextFactory<ReadOnlySchoolDbContext>` | ✅ Queries read-only | `ReadSchoolDbFactory` |
@@ -368,6 +382,18 @@ var item = await db.Products.FirstOrDefaultAsync(p => p.Id == id);
 **Depois:**
 ```csharp
 var item = await _queryExecutor.FirstOrDefaultAsync(db.Products.Where(p => p.Id == id));
+```
+
+### CTFA004: Query ou read scope armazenado na UI
+
+**Antes:**
+```csharp
+private IQueryable<ProductReadItem>? _query;
+```
+
+**Depois:**
+```csharp
+private IReadOnlyList<ProductReadItem> _items = [];
 ```
 
 ## ✨ Benefícios

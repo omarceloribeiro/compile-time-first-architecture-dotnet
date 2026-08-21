@@ -23,6 +23,9 @@ public sealed class ReadQueryExecutorTests
         var executor = new EfReadQueryExecutor();
 
         Assert.Equal(new[] { 1, 2, 3 }, await executor.ToListAsync(values));
+        var page = await executor.ToPageAsync(values, skip: 1, take: 1);
+        Assert.Equal([2], page.Items);
+        Assert.Equal(3, page.TotalCount);
         Assert.Equal(1, await executor.FirstOrDefaultAsync(values));
         Assert.Equal(2, await executor.SingleOrDefaultAsync(values.Where(x => x == 2)));
         Assert.Equal(3, await executor.CountAsync(values));

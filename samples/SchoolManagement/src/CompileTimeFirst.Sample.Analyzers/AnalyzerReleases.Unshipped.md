@@ -6,5 +6,7 @@
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
 CTFA001 | Architecture | Error | ViewModels and Blazor components cannot inject write DbContext
-CTFA002 | Architecture | Error | ViewModels must use IReadQueryExecutor.ToListAsync() instead of EF Core ToListAsync()
-CTFA003 | Architecture | Error | ViewModels must use IReadQueryExecutor.FirstOrDefaultAsync() instead of EF Core FirstOrDefaultAsync()
+CTFA002 | Architecture | Error | ViewModels and Blazor components must use IReadQueryExecutor.ToListAsync() instead of EF Core ToListAsync()
+CTFA003 | Architecture | Error | ViewModels and Blazor components must use IReadQueryExecutor.FirstOrDefaultAsync() instead of EF Core FirstOrDefaultAsync()
+CTFA004 | Architecture | Error | ViewModels and Blazor components cannot store IQueryable or read scopes as UI state
+CTFA005 | Architecture | Error | ViewModels and Blazor components must use IReadQueryExecutor for SingleOrDefaultAsync(), CountAsync() and AnyAsync()
