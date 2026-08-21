@@ -254,7 +254,9 @@ public class ReadOnlyArchitectureAnalyzer : DiagnosticAnalyzer
     private static bool IsForbiddenReadStateType(ITypeSymbol type)
     {
         var typeName = type.ToDisplayString();
-        return typeName.StartsWith("System.Linq.IQueryable<") ||
+        var implementsIQueryable = typeName == "System.Linq.IQueryable" ||
+                                  type.AllInterfaces.Any(i => i.ToDisplayString() == "System.Linq.IQueryable");
+        return implementsIQueryable ||
                typeName == "CompileTimeFirst.Sample.ReadModel.IReadSchoolDb" ||
                typeName == "CompileTimeFirst.Sample.ReadModel.IReadSchoolDbScope" ||
                typeName.Contains("ReadOnlySchoolDbContext");
