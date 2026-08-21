@@ -85,8 +85,15 @@ Use the terminal dictated by the control in the feature specification:
 - data grid, data table, result list, autocomplete or history → `ToPageAsync`;
 - export → read/export use case.
 
+When an incidental read explicitly needs uniqueness, count or existence, use
+`IReadQueryExecutor.SingleOrDefaultAsync`, `CountAsync` or `AnyAsync`. Never call the corresponding
+EF Core terminal extensions directly from a ViewModel or component.
+
 The specification chooses the control. Do not replace a dropdown with an autocomplete, invent row
 thresholds or add adaptive behavior unless the specification requires it.
+
+Every query passed to `ToPageAsync` must define deterministic ordering first. When the primary sort
+key is not unique, add a stable unique tie-breaker such as `ThenBy(x => x.Id)`.
 
 Keep `IQueryable<T>` and the read scope in local variables. Compose and materialize the query before
 the operation returns. Never store `IQueryable<T>`, `IReadDb`, a read scope or a DbContext as UI state,
@@ -167,6 +174,9 @@ Prefer:
 - strongly typed IDs and requests;
 - source-generated JSON/logging/regex where useful;
 - explicit code over reflection.
+
+In analyzers, prefer Roslyn semantic symbols and `SymbolEqualityComparer` over syntax text,
+display-name prefixes or other string matching whenever type or member identity is available.
 
 Investigate trimming and AOT warnings. Do not suppress them without documenting why.
 

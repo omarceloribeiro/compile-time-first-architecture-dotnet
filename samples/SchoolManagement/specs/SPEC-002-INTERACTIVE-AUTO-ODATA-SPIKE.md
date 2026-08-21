@@ -13,7 +13,7 @@ Prove that one Blazor page and ViewModel can execute the same portable LINQ quer
 1. Open `/auto-subjects`.
 2. The server render resolves the EF read provider and loads active subjects.
 3. After the WebAssembly bundle is available, revisit the page without a full reload.
-4. The client resolves the OData provider and executes the same `Where`, `OrderBy` and `Select` expression.
+4. The client resolves the OData provider and executes the same `Where` and `OrderBy` expression over the shared `SubjectReadItem` surface.
 5. The page displays the requested page, total count and active provider name.
 
 ## Constraints

@@ -41,6 +41,10 @@ Rows = page.Items;
 TotalCount = page.TotalCount;
 ```
 
+Every query passed to `ToPageAsync` defines deterministic ordering first. When the primary sort key
+is not unique, add a stable unique tie-breaker such as `ThenBy(x => x.Id)`. This prevents rows with
+equal sort values from moving between pages.
+
 A component load callback performs this entire operation and receives only the materialized rows and
 total count. Do not pass `query` or `db` to the component.
 
@@ -49,6 +53,9 @@ total count. Do not pass `query` or `db` to the component.
 | Specified UI need | Terminal |
 |---|---|
 | Lookup by identifier | `FirstOrDefaultAsync` |
+| Uniqueness | `SingleOrDefaultAsync` |
+| Count | `CountAsync` |
+| Existence | `AnyAsync` |
 | Dropdown | `ToListAsync` |
 | Data grid or data table | `ToPageAsync` |
 | Result list | `ToPageAsync` |
@@ -57,6 +64,8 @@ total count. Do not pass `query` or `db` to the component.
 | Export | Read/export use case |
 
 The specification chooses the control. Do not infer a different control from an expected row count.
+Scalar terminals are also called only through `IReadQueryExecutor`, never through provider-specific
+EF Core extensions in a ViewModel or component.
 
 The read store exposes approved `IQueryable<T>` surfaces and cannot save changes. `IQueryable<T>`,
 the read scope and DbContext never become ViewModel or component state.
