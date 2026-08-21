@@ -6,7 +6,7 @@ The central principle is simple:
 
 > If an inconsistency can be detected at compile time, it should not wait until runtime.
 
-This repository is a **v0 reference**, not a framework. It combines established .NET mechanisms into a predictable development model for humans and coding agents.
+This repository is a **v0.3 reference**, not a framework. It combines established .NET mechanisms into a predictable development model for humans and coding agents.
 
 ## Core model
 
@@ -32,6 +32,8 @@ ViewModel or endpoint
 IReadDbFactory
         ↓
 IQueryable<T>
+        ↓
+IReadQueryExecutor
         ↓
 EF Core locally or OData remotely
 ```
@@ -70,6 +72,7 @@ AI coding agents become substantially more reliable when the repository offers:
 6. **Read Use Cases for Business Views** — dashboards, indicators, reports and exports are explicit use cases.
 7. **Provider-Independent Reads** — the same portable LINQ may target EF Core on the server and OData from WebAssembly.
 8. **AI Predictability** — minimize hidden conventions, reflection and one-use indirection.
+9. **Page Before Materialization** — grids, data tables, result lists, autocompletes and histories terminate through `ToPageAsync`.
 
 ## Repository structure
 
@@ -101,6 +104,7 @@ The sample demonstrates:
 - a read-only EF Core context;
 - an `IReadSchoolDb` surface based on `IQueryable<T>`;
 - a direct ViewModel read;
+- paged incidental reads through the same executor contract in EF Core and browser OData;
 - a business read use case for a dashboard;
 - an export use case whose formats share one typed report model.
 
@@ -127,7 +131,7 @@ It does **not** reject DDD, CQRS, repositories or messaging categorically. It ap
 
 ## Status
 
-`v0.1-draft` — suitable for discussion, experiments and a small pilot. Validate the patterns in a real application before treating them as settled guidance.
+`v0.3` — reference release with uniform read terminals, operation-local query lifetime and provider-independent paging. Validate provider-specific LINQ and production security constraints in each application.
 
 ## License
 

@@ -22,9 +22,18 @@ public interface IReadProviderInfo
     string Name { get; }
 }
 
+public sealed record PageResult<T>(
+    IReadOnlyList<T> Items,
+    int TotalCount);
+
 public interface IReadQueryExecutor
 {
     Task<List<T>> ToListAsync<T>(IQueryable<T> query, CancellationToken cancellationToken = default);
+    Task<PageResult<T>> ToPageAsync<T>(
+        IQueryable<T> query,
+        int skip,
+        int take,
+        CancellationToken cancellationToken = default);
     Task<T?> FirstOrDefaultAsync<T>(IQueryable<T> query, CancellationToken cancellationToken = default);
     Task<T?> SingleOrDefaultAsync<T>(IQueryable<T> query, CancellationToken cancellationToken = default);
     Task<int> CountAsync<T>(IQueryable<T> query, CancellationToken cancellationToken = default);

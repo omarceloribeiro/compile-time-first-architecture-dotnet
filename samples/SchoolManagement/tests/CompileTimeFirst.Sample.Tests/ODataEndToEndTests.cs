@@ -39,11 +39,17 @@ public sealed class ODataEndToEndTests
         await using var db = await readFactory.CreateAsync();
         var subjects = await executor.ToListAsync(
             db.Subjects.Where(x => x.IsActive).OrderBy(x => x.Name));
+        var page = await executor.ToPageAsync(
+            db.Subjects.Where(x => x.IsActive).OrderBy(x => x.Name),
+            skip: 0,
+            take: 10);
         var count = await executor.CountAsync(db.Subjects.Where(x => x.IsActive));
         var any = await executor.AnyAsync(db.Subjects.Where(x => x.Name == "Computing"));
 
         var subject = Assert.Single(subjects);
         Assert.Equal("Computing", subject.Name);
+        Assert.Equal(["Computing"], page.Items.Select(x => x.Name));
+        Assert.Equal(1, page.TotalCount);
         Assert.Equal(1, count);
         Assert.True(any);
     }

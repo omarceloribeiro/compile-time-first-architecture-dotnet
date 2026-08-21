@@ -22,6 +22,12 @@
 
 ## Result
 
+## Controles e carregamento de dados
+
+Para cada seletor, grid, tabela, lista, autocomplete ou histórico, informe o componente esperado.
+Quando houver comportamento adaptativo, informe também o limite exato. O agente não deve trocar o
+componente com base em uma estimativa própria de volume.
+
 ## Critérios de aceite
 
 - [ ]

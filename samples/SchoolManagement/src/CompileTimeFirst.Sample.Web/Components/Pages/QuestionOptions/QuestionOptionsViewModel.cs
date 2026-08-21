@@ -10,8 +10,25 @@ public sealed class QuestionOptionsViewModel(
     ICreateQuestionOptionUseCase createQuestionOption)
     : IViewModel
 {
+    public const int QuestionsPageSize = 10;
+    public const int OptionsPageSize = 10;
+
     public IReadOnlyList<QuestionListItem> Questions { get; private set; } = [];
     public IReadOnlyList<QuestionOptionReadItem> Options { get; private set; } = [];
+    public int QuestionsCurrentPage { get; private set; }
+    public int QuestionsTotalCount { get; private set; }
+    public int QuestionsTotalPages => Math.Max(
+        1,
+        (QuestionsTotalCount + QuestionsPageSize - 1) / QuestionsPageSize);
+    public bool HasPreviousQuestionsPage => QuestionsCurrentPage > 0;
+    public bool HasNextQuestionsPage => QuestionsCurrentPage + 1 < QuestionsTotalPages;
+    public int OptionsCurrentPage { get; private set; }
+    public int OptionsTotalCount { get; private set; }
+    public int OptionsTotalPages => Math.Max(
+        1,
+        (OptionsTotalCount + OptionsPageSize - 1) / OptionsPageSize);
+    public bool HasPreviousOptionsPage => OptionsCurrentPage > 0;
+    public bool HasNextOptionsPage => OptionsCurrentPage + 1 < OptionsTotalPages;
 
     public Guid? SelectedQuestionId { get; set; }
     public string NewText { get; set; } = string.Empty;
@@ -24,12 +41,25 @@ public sealed class QuestionOptionsViewModel(
 
     public async Task LoadAsync(CancellationToken cancellationToken = default)
     {
+        await LoadQuestionsAsync(0, cancellationToken);
+
+        if (SelectedQuestionId.HasValue)
+        {
+            await LoadOptionsAsync(0, cancellationToken);
+        }
+    }
+
+    public async Task LoadQuestionsAsync(
+        int page,
+        CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(0, page);
         await using var db = await readFactory.CreateAsync(cancellationToken);
 
         var questionsQuery = from q in db.Questions
                             join s in db.Subjects on q.SubjectId equals s.Id
                             join g in db.Grades on q.GradeId equals g.Id
-                            orderby q.CreatedAt descending
+                            orderby q.CreatedAt descending, q.Id
                             select new QuestionListItem(
                                 q.Id,
                                 q.Statement,
@@ -37,28 +67,43 @@ public sealed class QuestionOptionsViewModel(
                                 s.Name,
                                 g.Name);
 
-        Questions = await executor.ToListAsync(questionsQuery, cancellationToken);
+        var result = await executor.ToPageAsync(
+            questionsQuery,
+            page * QuestionsPageSize,
+            QuestionsPageSize,
+            cancellationToken);
 
-        if (SelectedQuestionId.HasValue)
-        {
-            await LoadOptionsAsync(cancellationToken);
-        }
+        Questions = result.Items;
+        QuestionsTotalCount = result.TotalCount;
+        QuestionsCurrentPage = page;
     }
 
-    public async Task LoadOptionsAsync(CancellationToken cancellationToken = default)
+    public async Task LoadOptionsAsync(
+        int page = 0,
+        CancellationToken cancellationToken = default)
     {
         if (!SelectedQuestionId.HasValue)
         {
             Options = [];
+            OptionsTotalCount = 0;
+            OptionsCurrentPage = 0;
             return;
         }
 
+        page = Math.Max(0, page);
         await using var db = await readFactory.CreateAsync(cancellationToken);
-        Options = await executor.ToListAsync(
+        var result = await executor.ToPageAsync(
             db.QuestionOptions
                 .Where(o => o.QuestionId == SelectedQuestionId.Value)
-                .OrderBy(o => o.Order),
+                .OrderBy(o => o.Order)
+                .ThenBy(o => o.Id),
+            page * OptionsPageSize,
+            OptionsPageSize,
             cancellationToken);
+
+        Options = result.Items;
+        OptionsTotalCount = result.TotalCount;
+        OptionsCurrentPage = page;
     }
 
     public async Task CreateAsync(CancellationToken cancellationToken = default)
@@ -91,10 +136,10 @@ public sealed class QuestionOptionsViewModel(
 
             NewText = string.Empty;
             NewIsCorrect = false;
-            NewOrder = Options.Count + 1;
+            NewOrder = OptionsTotalCount + 1;
             SuccessMessage = $"Option created with id {result.OptionId}.";
 
-            await LoadOptionsAsync(cancellationToken);
+            await LoadOptionsAsync(OptionsCurrentPage, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -110,7 +155,7 @@ public sealed class QuestionOptionsViewModel(
     {
         SelectedQuestionId = questionId;
         NewOrder = 1;
-        await LoadOptionsAsync(cancellationToken);
+        await LoadOptionsAsync(0, cancellationToken);
     }
 }
 

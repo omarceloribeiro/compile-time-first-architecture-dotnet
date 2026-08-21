@@ -59,6 +59,38 @@ public sealed class ODataReadQueryExecutor(HttpClient httpClient) : IReadQueryEx
         return results;
     }
 
+    public async Task<PageResult<T>> ToPageAsync<T>(
+        IQueryable<T> query,
+        int skip,
+        int take,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(skip);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(take);
+
+        var requestUri = GetDataServiceQuery(query.Skip(skip).Take(take))
+            .IncludeCount()
+            .RequestUri;
+        var results = new List<T>(take);
+        long? totalCount = null;
+
+        while (requestUri is not null && results.Count < take)
+        {
+            var page = await GetPageAsync<T>(requestUri, cancellationToken);
+            totalCount ??= page.Count;
+
+            var remaining = take - results.Count;
+            results.AddRange(page.Value.Take(remaining));
+            requestUri = page.NextLink;
+        }
+
+        return new PageResult<T>(
+            results,
+            checked((int)(totalCount
+                ?? throw new InvalidOperationException(
+                    "The OData response did not include @odata.count."))));
+    }
+
     public async Task<T?> FirstOrDefaultAsync<T>(
         IQueryable<T> query,
         CancellationToken cancellationToken = default)

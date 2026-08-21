@@ -12,6 +12,7 @@ namespace CompileTimeFirst.Sample.Analyzers;
 /// 1. NÃO injetem SchoolDbContext diretamente (apenas IReadSchoolDb/IReadSchoolDbFactory)
 /// 2. NÃO usem ToListAsync() do EF Core diretamente
 /// 3. Usem IReadQueryExecutor.ToListAsync() para queries
+/// 4. NÃO armazenem IQueryable, read scope ou read DbContext como estado da UI
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class ReadOnlyArchitectureAnalyzer : DiagnosticAnalyzer
@@ -49,11 +50,23 @@ public class ReadOnlyArchitectureAnalyzer : DiagnosticAnalyzer
         isEnabledByDefault: true,
         description: "ViewModels devem usar IReadQueryExecutor.FirstOrDefaultAsync() em vez de chamar EF Core diretamente.");
 
+    // Regra 4: Não armazenar provider/contexto de leitura em estado da UI
+    public const string NoEscapedReadStateId = "CTFA004";
+    private static readonly DiagnosticDescriptor NoEscapedReadStateRule = new DiagnosticDescriptor(
+        id: NoEscapedReadStateId,
+        title: "Consulta ou contexto de leitura não pode ser estado da UI",
+        messageFormat: "'{0}' não pode armazenar '{1}'. Mantenha a query e o read scope locais à operação e armazene apenas dados materializados.",
+        category: "Architecture",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "ViewModels e componentes não podem manter IQueryable, IReadSchoolDbScope ou read DbContext em campos/propriedades.");
+
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(
             NoWriteDbContextInUIRule,
             NoDirectEfCoreToListAsyncRule,
-            NoDirectEfCoreFirstOrDefaultAsyncRule);
+            NoDirectEfCoreFirstOrDefaultAsyncRule,
+            NoEscapedReadStateRule);
 
     public override void Initialize(AnalysisContext context)
     {
@@ -71,6 +84,7 @@ public class ReadOnlyArchitectureAnalyzer : DiagnosticAnalyzer
 
         // Analisa propriedades para detectar [Inject] em componentes Blazor
         context.RegisterSyntaxNodeAction(AnalyzeProperty, SyntaxKind.PropertyDeclaration);
+        context.RegisterSyntaxNodeAction(AnalyzeField, SyntaxKind.FieldDeclaration);
 
         // Analisa invocações de métodos para detectar ToListAsync/FirstOrDefaultAsync do EF Core
         context.RegisterSyntaxNodeAction(AnalyzeMethodInvocation, SyntaxKind.InvocationExpression);
@@ -141,6 +155,15 @@ public class ReadOnlyArchitectureAnalyzer : DiagnosticAnalyzer
                     className);
                 context.ReportDiagnostic(diagnostic);
             }
+
+            if (IsForbiddenReadStateType(parameterType))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    NoEscapedReadStateRule,
+                    parameter.GetLocation(),
+                    className,
+                    typeName));
+            }
         }
     }
 
@@ -156,6 +179,18 @@ public class ReadOnlyArchitectureAnalyzer : DiagnosticAnalyzer
 
         var className = containingClass.Identifier.Text;
 
+        var propertyType = context.SemanticModel.GetTypeInfo(property.Type).Type;
+        if (propertyType != null &&
+            IsViewModelOrBlazorComponent(className, context.SemanticModel, containingClass) &&
+            IsForbiddenReadStateType(propertyType))
+        {
+            context.ReportDiagnostic(Diagnostic.Create(
+                NoEscapedReadStateRule,
+                property.GetLocation(),
+                className,
+                propertyType.ToDisplayString()));
+        }
+
         // Verifica se é componente Blazor (tem atributo [Inject])
         var hasInjectAttribute = property.AttributeLists
             .SelectMany(al => al.Attributes)
@@ -166,7 +201,6 @@ public class ReadOnlyArchitectureAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var propertyType = context.SemanticModel.GetTypeInfo(property.Type).Type;
         if (propertyType == null)
         {
             return;
@@ -185,6 +219,45 @@ public class ReadOnlyArchitectureAnalyzer : DiagnosticAnalyzer
                 className);
             context.ReportDiagnostic(diagnostic);
         }
+    }
+
+    private void AnalyzeField(SyntaxNodeAnalysisContext context)
+    {
+        var field = (FieldDeclarationSyntax)context.Node;
+        var containingClass = field.Parent as ClassDeclarationSyntax;
+
+        if (containingClass == null ||
+            !IsViewModelOrBlazorComponent(
+                containingClass.Identifier.Text,
+                context.SemanticModel,
+                containingClass))
+        {
+            return;
+        }
+
+        var fieldType = context.SemanticModel.GetTypeInfo(field.Declaration.Type).Type;
+        if (fieldType == null || !IsForbiddenReadStateType(fieldType))
+        {
+            return;
+        }
+
+        foreach (var variable in field.Declaration.Variables)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(
+                NoEscapedReadStateRule,
+                variable.GetLocation(),
+                containingClass.Identifier.Text,
+                fieldType.ToDisplayString()));
+        }
+    }
+
+    private static bool IsForbiddenReadStateType(ITypeSymbol type)
+    {
+        var typeName = type.ToDisplayString();
+        return typeName.StartsWith("System.Linq.IQueryable<") ||
+               typeName == "CompileTimeFirst.Sample.ReadModel.IReadSchoolDb" ||
+               typeName == "CompileTimeFirst.Sample.ReadModel.IReadSchoolDbScope" ||
+               typeName.Contains("ReadOnlySchoolDbContext");
     }
 
     private void AnalyzeMethodInvocation(SyntaxNodeAnalysisContext context)

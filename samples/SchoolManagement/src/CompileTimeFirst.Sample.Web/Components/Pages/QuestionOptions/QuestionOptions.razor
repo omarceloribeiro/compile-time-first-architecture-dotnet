@@ -26,7 +26,7 @@
     <div class="col-md-5">
         <div class="card mb-4">
             <div class="card-body">
-                <h5 class="card-title">Questions (@ViewModel.Questions.Count)</h5>
+                <h5 class="card-title">Questions (@ViewModel.QuestionsTotalCount)</h5>
                 @if (ViewModel.Questions.Count == 0)
                 {
                     <p class="text-muted">No questions found. Create some questions first.</p>
@@ -54,6 +54,19 @@
                             </button>
                         }
                     </div>
+                    <nav class="d-flex justify-content-between align-items-center mt-3" aria-label="Questions pages">
+                        <button class="btn btn-outline-secondary btn-sm"
+                                disabled="@(!ViewModel.HasPreviousQuestionsPage)"
+                                @onclick="LoadPreviousQuestionsPageAsync">
+                            Previous
+                        </button>
+                        <span>Page @(ViewModel.QuestionsCurrentPage + 1) of @ViewModel.QuestionsTotalPages</span>
+                        <button class="btn btn-outline-secondary btn-sm"
+                                disabled="@(!ViewModel.HasNextQuestionsPage)"
+                                @onclick="LoadNextQuestionsPageAsync">
+                            Next
+                        </button>
+                    </nav>
                 }
             </div>
         </div>
@@ -95,7 +108,7 @@
 
             <div class="card">
                 <div class="card-body">
-                    <h5 class="card-title">Options (@ViewModel.Options.Count)</h5>
+                    <h5 class="card-title">Options (@ViewModel.OptionsTotalCount)</h5>
                     @if (ViewModel.Options.Count == 0)
                     {
                         <p class="text-muted">No options yet.</p>
@@ -126,6 +139,19 @@
                                 }
                             </tbody>
                         </table>
+                        <nav class="d-flex justify-content-between align-items-center" aria-label="Options pages">
+                            <button class="btn btn-outline-secondary btn-sm"
+                                    disabled="@(!ViewModel.HasPreviousOptionsPage)"
+                                    @onclick="LoadPreviousOptionsPageAsync">
+                                Previous
+                            </button>
+                            <span>Page @(ViewModel.OptionsCurrentPage + 1) of @ViewModel.OptionsTotalPages</span>
+                            <button class="btn btn-outline-secondary btn-sm"
+                                    disabled="@(!ViewModel.HasNextOptionsPage)"
+                                    @onclick="LoadNextOptionsPageAsync">
+                                Next
+                            </button>
+                        </nav>
                     }
                 </div>
             </div>
@@ -156,4 +182,16 @@
     {
         await ViewModel.CreateAsync();
     }
+
+    private Task LoadPreviousQuestionsPageAsync() =>
+        ViewModel.LoadQuestionsAsync(ViewModel.QuestionsCurrentPage - 1);
+
+    private Task LoadNextQuestionsPageAsync() =>
+        ViewModel.LoadQuestionsAsync(ViewModel.QuestionsCurrentPage + 1);
+
+    private Task LoadPreviousOptionsPageAsync() =>
+        ViewModel.LoadOptionsAsync(ViewModel.OptionsCurrentPage - 1);
+
+    private Task LoadNextOptionsPageAsync() =>
+        ViewModel.LoadOptionsAsync(ViewModel.OptionsCurrentPage + 1);
 }

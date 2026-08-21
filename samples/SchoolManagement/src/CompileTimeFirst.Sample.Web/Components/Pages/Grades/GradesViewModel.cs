@@ -9,19 +9,38 @@ public sealed class GradesViewModel(
     ICreateGradeUseCase createGrade)
     : IViewModel
 {
+    public const int PageSize = 10;
+
     public IReadOnlyList<GradeReadItem> Items { get; private set; } = [];
+    public int CurrentPage { get; private set; }
+    public int TotalCount { get; private set; }
+    public int TotalPages => Math.Max(1, (TotalCount + PageSize - 1) / PageSize);
+    public bool HasPreviousPage => CurrentPage > 0;
+    public bool HasNextPage => CurrentPage + 1 < TotalPages;
     public string NewName { get; set; } = string.Empty;
     public int NewOrder { get; set; } = 1;
     public string? ErrorMessage { get; private set; }
     public string? SuccessMessage { get; private set; }
     public bool IsBusy { get; private set; }
 
-    public async Task LoadAsync(CancellationToken cancellationToken = default)
+    public async Task LoadAsync(
+        int page = 0,
+        CancellationToken cancellationToken = default)
     {
+        page = Math.Max(0, page);
         await using var db = await readFactory.CreateAsync(cancellationToken);
-        Items = await executor.ToListAsync(
-            db.Grades.Where(x => x.IsActive).OrderBy(x => x.Order),
+        var result = await executor.ToPageAsync(
+            db.Grades
+                .Where(x => x.IsActive)
+                .OrderBy(x => x.Order)
+                .ThenBy(x => x.Id),
+            page * PageSize,
+            PageSize,
             cancellationToken);
+
+        Items = result.Items;
+        TotalCount = result.TotalCount;
+        CurrentPage = page;
     }
 
     public async Task CreateAsync(CancellationToken cancellationToken = default)
@@ -44,7 +63,7 @@ public sealed class GradesViewModel(
             NewName = string.Empty;
             NewOrder = 1;
             SuccessMessage = $"Grade created with id {result.GradeId}.";
-            await LoadAsync(cancellationToken);
+            await LoadAsync(CurrentPage, cancellationToken);
         }
         catch (Exception ex)
         {
