@@ -22,6 +22,7 @@ Do not claim success without running the available build and tests.
 ## Core principles
 
 - Simple First.
+- Well-Known First.
 - Compile-Time First.
 - Feature First.
 - Strongly typed contracts.
@@ -180,9 +181,40 @@ display-name prefixes or other string matching whenever type or member identity 
 
 Investigate trimming and AOT warnings. Do not suppress them without documenting why.
 
+## Well-Known First
+
+Prefer public, well-known APIs, protocols, types and conventions when they solve the current problem
+adequately. They reduce the private context that humans and coding agents must load before changing
+a feature.
+
+Do not hide a suitable public abstraction behind a private wrapper unless the wrapper adds concrete
+product semantics, enforces a real architectural boundary, isolates a provider-specific capability
+that is needed now, or coordinates actual shared behavior.
+
+Preferred public semantic surfaces include:
+
+- `HttpClient`, HTTP, JSON, OpenAPI and OData;
+- `IQueryable<T>`, `DbContext` and `IDbContextFactory<TContext>`;
+- `ILogger<T>`, DataAnnotations, ASP.NET Core Identity, roles and policies;
+- the selected UI library's public component APIs.
+
+Before introducing a private abstraction, answer:
+
+1. What concrete capability does it add?
+2. What product meaning or architectural boundary does it express?
+3. What current problem would exist if the public API were used directly?
+4. Is that problem present now, rather than hypothetical?
+
+Public documentation and the installed package version remain authoritative. Compile, analyze and
+test the actual API usage; do not rely only on model familiarity or remembered examples.
+
+Well-known does not mean automatically suitable. Evaluate security, maintenance, licensing,
+compatibility, performance and API quality together with public familiarity.
+
 ## Forbidden by default
 
 - generic repository over EF Core;
+- private wrappers that only rename a suitable public API;
 - direct persistence from UI;
 - service locator;
 - dynamic dictionaries as application contracts;

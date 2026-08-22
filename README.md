@@ -6,7 +6,7 @@ The central principle is simple:
 
 > If an inconsistency can be detected at compile time, it should not wait until runtime.
 
-This repository is a **v0.3 reference**, not a framework. It combines established .NET mechanisms into a predictable development model for humans and coding agents.
+This repository is a **v0.4 reference**, not a framework. It combines established .NET mechanisms into a predictable development model for humans and coding agents.
 
 ## Core model
 
@@ -57,6 +57,7 @@ AI coding agents become substantially more reliable when the repository offers:
 - strong types instead of dictionaries and loose strings;
 - explicit contracts instead of hidden pipelines;
 - compile-time feedback instead of runtime discovery;
+- well-known public constructs instead of private mechanical wrappers;
 - a small number of predictable implementation paths;
 - one cohesive file per use case;
 - direct, typed LINQ for simple reads;
@@ -65,14 +66,31 @@ AI coding agents become substantially more reliable when the repository offers:
 ## Principles
 
 1. **Simple First** — abstractions must solve a current problem.
-2. **Compile-Time First** — prefer strong types, generators and static validation.
-3. **Feature First** — organize by business capability and actor, not technical type.
-4. **Write Through Use Cases** — all state changes pass through explicit contracts.
-5. **Read Directly When Incidental** — screen-specific reads may use the read store directly.
-6. **Read Use Cases for Business Views** — dashboards, indicators, reports and exports are explicit use cases.
-7. **Provider-Independent Reads** — the same portable LINQ may target EF Core on the server and OData from WebAssembly.
-8. **AI Predictability** — minimize hidden conventions, reflection and one-use indirection.
-9. **Page Before Materialization** — grids, data tables, result lists, autocompletes and histories terminate through `ToPageAsync`.
+2. **Well-Known First** — prefer suitable public semantic surfaces over private mechanical wrappers.
+3. **Compile-Time First** — prefer strong types, generators and static validation.
+4. **Feature First** — organize by business capability and actor, not technical type.
+5. **Write Through Use Cases** — all state changes pass through explicit contracts.
+6. **Read Directly When Incidental** — screen-specific reads may use the read store directly.
+7. **Read Use Cases for Business Views** — dashboards, indicators, reports and exports are explicit use cases.
+8. **Provider-Independent Reads** — the same portable LINQ may target EF Core on the server and OData from WebAssembly.
+9. **AI Predictability** — minimize hidden conventions, reflection and one-use indirection.
+10. **Page Before Materialization** — grids, data tables, result lists, autocompletes and histories terminate through `ToPageAsync`.
+
+## Well-Known First
+
+Public, well-known APIs act as a shared semantic surface for humans, tools and coding agents. Use
+constructs such as `HttpClient`, `IQueryable<T>`, `IDbContextFactory<TContext>`, `ILogger<T>`,
+DataAnnotations, ASP.NET Core policies, HTTP/JSON/OpenAPI/OData and the selected UI library directly
+when they solve the problem adequately.
+
+Create a private abstraction only when it adds current product semantics, policy, a concrete
+architecture/lifecycle boundary, real provider variation or necessary external isolation. Public
+documentation and the installed version remain authoritative; compiler, analyzer and test feedback
+validate the actual use.
+
+`IReadQueryExecutor` is the canonical justified example: LINQ remains the public query-composition
+surface, while the executor owns the real async terminal difference between EF Core and browser
+OData. See [ADR 0006](docs/adr/0006-well-known-first.md).
 
 ## Repository structure
 
@@ -124,6 +142,7 @@ dotnet run --project samples/SchoolManagement/src/CompileTimeFirst.Sample.Consol
 - mapping frameworks by default;
 - assembly scanning as a default DI strategy;
 - reflection-driven business rules;
+- wrappers that only rename suitable public APIs;
 - screen-specific query classes used only once;
 - direct writes from UI, endpoints or ViewModels.
 
@@ -131,7 +150,7 @@ It does **not** reject DDD, CQRS, repositories or messaging categorically. It ap
 
 ## Status
 
-`v0.3` — reference release with uniform read terminals, operation-local query lifetime and provider-independent paging. Validate provider-specific LINQ and production security constraints in each application.
+`v0.4` — adds Well-Known First, Public Semantic Surface and Context Debt to the v0.3 query-execution, paging and build-validation baseline. Validate provider-specific LINQ, installed API versions and production security constraints in each application.
 
 ## License
 

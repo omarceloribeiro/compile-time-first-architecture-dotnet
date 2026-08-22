@@ -1,5 +1,16 @@
 # School Management architecture rules
 
+## Well-Known First
+
+- Use public .NET, ASP.NET Core, EF Core, LINQ, HTTP/OData and Blazor APIs directly when adequate.
+- Do not add mechanical repositories, loggers, HTTP gateways or component wrappers that only rename
+  those APIs.
+- Product-specific abstractions are valid when they add product meaning, policy, a concrete
+  lifecycle/provider boundary or necessary external isolation.
+- `IReadQueryExecutor` owns the actual EF/OData async terminal boundary while query composition stays
+  on public `IQueryable<T>` and LINQ.
+- Official documentation and the installed package version are authoritative.
+
 ## UI read/write boundary
 
 - ViewModels and Blazor components never inject `SchoolDbContext` or its factory.
