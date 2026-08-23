@@ -69,7 +69,7 @@ AI coding agents become substantially more reliable when the repository offers:
 2. **Well-Known First** — prefer suitable public semantic surfaces over private mechanical wrappers.
 3. **Compile-Time First** — prefer strong types, generators and static validation.
 4. **Feature First** — organize by business capability and actor, not technical type.
-5. **Write Through Use Cases** — all state changes pass through explicit contracts.
+5. **Write Through Use Cases** — product and domain state changes pass through explicit contracts.
 6. **Read Directly When Incidental** — screen-specific reads may use the read store directly.
 7. **Read Use Cases for Business Views** — dashboards, indicators, reports and exports are explicit use cases.
 8. **Provider-Independent Reads** — the same portable LINQ may target EF Core on the server and OData from WebAssembly.
@@ -90,7 +90,9 @@ validate the actual use.
 
 `IReadQueryExecutor` is the canonical justified example: LINQ remains the public query-composition
 surface, while the executor owns the real async terminal difference between EF Core and browser
-OData. See [ADR 0006](docs/adr/0006-well-known-first.md).
+OData. The detailed guide shows how the same principle makes explicit UI-vendor usage easier for an
+agent to understand and migrate. See [Well-Known First and semantic transparency](docs/WELL-KNOWN-FIRST.md)
+and [ADR 0006](docs/adr/0006-well-known-first.md).
 
 ## Repository structure
 

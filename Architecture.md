@@ -18,6 +18,9 @@ Prefer public, well-known APIs, protocols, types and conventions when they solve
 adequately. Do not hide a suitable public abstraction behind a private abstraction unless the
 private abstraction adds concrete product semantics or owns a real boundary that exists now.
 
+See [`docs/WELL-KNOWN-FIRST.md`](docs/WELL-KNOWN-FIRST.md) for the detailed rationale, private-language
+cost model, semantic-transparency rule and public-to-public UI migration example.
+
 The **public semantic surface** is the part of the system whose meaning is already documented and
 recognized outside this repository. In this profile it includes constructs such as `HttpClient`,
 HTTP, JSON, OpenAPI, `IQueryable<T>`, `DbContext`, `IDbContextFactory<TContext>`, `ILogger<T>`,
@@ -63,17 +66,24 @@ vocabulary; it does not remove product semantics or necessary boundaries.
 
 This principle applies differently at each boundary:
 
-- **Reads:** compose with the public `IQueryable<T>` surface. `IReadQueryExecutor` is justified only
-  at the terminal boundary because EF Core and browser OData do not share a provider-neutral async
+- **Reads:** compose with the public `IQueryable<T>` and standard LINQ surface. `IReadDb` and
+  `IReadDbFactory` define the approved provider-independent read surface and its operation-scoped
+  lifetime across EF Core and remote/OData providers. `IReadQueryExecutor` owns the separate async
+  terminal/materialization boundary because those providers do not share a provider-neutral async
   terminal API.
 - **UI:** use Blazor and the selected component library directly. Product components are valid when
   they express concepts such as enrollment or attendance; mechanical `BaseGrid` or `BaseButton`
-  wrappers are not the default.
+  wrappers are not the default. A design system documents approved use of the public library and
+  product tokens; it does not exist merely to hide the vendor.
 - **Dependency injection:** use the platform container and explicit registrations directly.
   Validation may inspect the graph but does not introduce a private service-locator vocabulary.
 - **Integrations:** use `HttpClient`, HTTP, JSON and generated/public protocol contracts directly
   until a product-specific client is needed to own authentication, normalization, versioning or
   another concrete integration behavior.
+- **Authentication:** use ASP.NET Core Identity types and APIs directly for framework-owned sign-in,
+  password, token, lockout, claims/roles primitives and authentication state. Product operations
+  such as invitation, provisioning, tenant linkage, access activation/deactivation or eligibility
+  remain application use cases when they carry product semantics.
 
 Explicit vendor coupling localized to a regenerable boundary can be cheaper to understand and
 migrate than artificial independence expressed through private wrappers. Protect durable product
@@ -82,7 +92,7 @@ knowledge, not regenerable implementation.
 ## 3. Decision tree
 
 ```text
-Does the operation change state?
+Does the operation change product/application state?
   Yes → Write Use Case
   No  → Does the read represent a business capability?
           Yes → Read Use Case
@@ -129,6 +139,16 @@ ViewModel
   → IReadQueryExecutor
   → materialized UI state
 ```
+
+`IReadDb` and `IReadDbFactory` are justified boundaries under Well-Known First. They expose only the
+approved provider-independent read surface and own its operation-scoped creation/lifetime across EF
+Core and remote/OData implementations. Replacing them in Server code with
+`IDbContextFactory<ReadOnlyDbContext>` would leak an EF-only construction contract into feature code
+and break the same ViewModel's Server, WebAssembly and Interactive Auto portability.
+
+They do not replace the public query language: the ViewModel still composes `IQueryable<T>` with
+standard LINQ. `IReadQueryExecutor` owns only the separate async terminal and materialization
+boundary.
 
 The ViewModel may change when the screen changes. The application use case does not.
 

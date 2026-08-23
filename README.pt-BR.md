@@ -10,7 +10,7 @@ Este repositório não pretende ser um framework. A proposta é documentar um co
   diretamente quando resolvem adequadamente o problema;
 - abstrações privadas precisam acrescentar semântica de produto, política, uma fronteira concreta,
   providers realmente suportados ou isolamento externo necessário;
-- escritas passam por casos de uso fortemente tipados;
+- alterações de estado do produto passam por casos de uso fortemente tipados;
 - leituras incidentais da interface usam um banco somente leitura com `IQueryable<T>`;
 - toda execução terminal de leitura incidental usa `IReadQueryExecutor`;
 - grids, tabelas, listas de resultados, autocompletes e históricos usam `ToPageAsync`;
@@ -32,5 +32,9 @@ compilador, os analyzers e os testes validam o uso real.
 linguagem pública de composição, enquanto o executor resolve somente a diferença concreta entre os
 terminais assíncronos do EF Core e do OData no navegador.
 
-Consulte [Architecture.md](Architecture.md), [AGENTS.md](AGENTS.md) e o
+O guia [Well-Known First e transparência semântica](docs/WELL-KNOWN-FIRST.md) detalha o custo de uma
+linguagem privada, o papel do design system e como o uso explícito de uma biblioteca visual pode
+tornar uma futura migração mais mecânica para agentes de IA.
+
+Consulte também [Architecture.md](Architecture.md), [AGENTS.md](AGENTS.md) e o
 [ADR 0006](docs/adr/0006-well-known-first.md).

@@ -45,21 +45,30 @@ additional architectural signal, not a substitute for technical fitness.
 
 ## Canonical example
 
-`IReadQueryExecutor` demonstrates the intended boundary rather than contradicting the principle:
+The provider-independent read stack demonstrates the intended boundaries rather than contradicting
+the principle:
 
 ```text
 IQueryable<T>
   = public composition language retained directly
+
+IReadDb / IReadDbFactory
+  = approved read surface plus operation lifetime and provider creation
 
 IReadQueryExecutor
   = private terminal boundary required because EF Core and browser OData
     have different asynchronous execution mechanisms
 ```
 
-The abstraction owns only the provider/runtime difference. It does not replace `Where`, `Select`,
+`IReadDb` and its factory prevent an EF-only construction contract from leaking into shared feature
+code while supporting EF and remote/OData implementations. The executor owns the separate
+provider/runtime terminal difference. None of these contracts replaces `Where`, `Select`,
 `OrderBy`, `Skip`, `Take` or another public LINQ composition surface with a private query DSL.
 
 ## Operational rule
+
+The detailed operational and UI-migration examples live in
+[`docs/WELL-KNOWN-FIRST.md`](../WELL-KNOWN-FIRST.md).
 
 Before adding a relevant private abstraction, an agent or ADR must answer:
 

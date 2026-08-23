@@ -76,6 +76,10 @@ Use direct `IReadDb` queries for incidental UI needs:
 - simple grids;
 - one-use projections.
 
+`IReadDb` and `IReadDbFactory` are intentional provider/lifetime boundaries. Preserve them even in
+Server-only feature code; do not replace them with an EF-specific DbContext factory. They keep the
+same feature compatible with operation-scoped EF and remote/OData read providers.
+
 Every incidental read terminates through `IReadQueryExecutor`. Do not call EF Core, OData or another
 provider's terminal extensions from a ViewModel or component.
 
@@ -187,6 +191,9 @@ Prefer public, well-known APIs, protocols, types and conventions when they solve
 adequately. They reduce the private context that humans and coding agents must load before changing
 a feature.
 
+Read `docs/WELL-KNOWN-FIRST.md` before introducing a cross-cutting infrastructure abstraction, UI
+wrapper or private framework vocabulary.
+
 Do not hide a suitable public abstraction behind a private wrapper unless the wrapper adds concrete
 product semantics, enforces a real architectural boundary, isolates a provider-specific capability
 that is needed now, or coordinates actual shared behavior.
@@ -210,6 +217,12 @@ test the actual API usage; do not rely only on model familiarity or remembered e
 
 Well-known does not mean automatically suitable. Evaluate security, maintenance, licensing,
 compatibility, performance and API quality together with public familiarity.
+
+Use ASP.NET Core Identity APIs directly for framework-owned sign-in, password, token, lockout,
+claims/roles primitives and authentication state. Product operations such as invitation,
+provisioning, tenant linkage, access activation/deactivation or eligibility remain application use
+cases when they carry product semantics. Granting or revoking a product role is a product decision
+even though its implementation uses public Identity APIs.
 
 ## Forbidden by default
 
