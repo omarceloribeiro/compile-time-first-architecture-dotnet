@@ -69,3 +69,12 @@ EF Core extensions in a ViewModel or component.
 
 The read store exposes approved `IQueryable<T>` surfaces and cannot save changes. `IQueryable<T>`,
 the read scope and DbContext never become ViewModel or component state.
+
+## Well-Known First
+
+Keep `IQueryable<T>` and standard LINQ as the public query-composition language. Do not replace
+`Where`, `Select`, `OrderBy`, `Skip` or `Take` with a private query DSL.
+
+`IReadQueryExecutor` is intentionally narrower: it owns the concrete async terminal difference
+between EF Core and browser OData and enforces operation-local materialization. It is a justified
+architecture boundary, not a wrapper created merely to rename LINQ.

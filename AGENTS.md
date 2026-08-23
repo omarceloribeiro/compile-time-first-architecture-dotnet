@@ -22,6 +22,7 @@ Do not claim success without running the available build and tests.
 ## Core principles
 
 - Simple First.
+- Well-Known First.
 - Compile-Time First.
 - Feature First.
 - Strongly typed contracts.
@@ -74,6 +75,10 @@ Use direct `IReadDb` queries for incidental UI needs:
 - editor loading;
 - simple grids;
 - one-use projections.
+
+`IReadDb` and `IReadDbFactory` are intentional provider/lifetime boundaries. Preserve them even in
+Server-only feature code; do not replace them with an EF-specific DbContext factory. They keep the
+same feature compatible with operation-scoped EF and remote/OData read providers.
 
 Every incidental read terminates through `IReadQueryExecutor`. Do not call EF Core, OData or another
 provider's terminal extensions from a ViewModel or component.
@@ -180,9 +185,49 @@ display-name prefixes or other string matching whenever type or member identity 
 
 Investigate trimming and AOT warnings. Do not suppress them without documenting why.
 
+## Well-Known First
+
+Prefer public, well-known APIs, protocols, types and conventions when they solve the current problem
+adequately. They reduce the private context that humans and coding agents must load before changing
+a feature.
+
+Read `docs/WELL-KNOWN-FIRST.md` before introducing a cross-cutting infrastructure abstraction, UI
+wrapper or private framework vocabulary.
+
+Do not hide a suitable public abstraction behind a private wrapper unless the wrapper adds concrete
+product semantics, enforces a real architectural boundary, isolates a provider-specific capability
+that is needed now, or coordinates actual shared behavior.
+
+Preferred public semantic surfaces include:
+
+- `HttpClient`, HTTP, JSON, OpenAPI and OData;
+- `IQueryable<T>`, `DbContext` and `IDbContextFactory<TContext>`;
+- `ILogger<T>`, DataAnnotations, ASP.NET Core Identity, roles and policies;
+- the selected UI library's public component APIs.
+
+Before introducing a private abstraction, answer:
+
+1. What concrete capability does it add?
+2. What product meaning or architectural boundary does it express?
+3. What current problem would exist if the public API were used directly?
+4. Is that problem present now, rather than hypothetical?
+
+Public documentation and the installed package version remain authoritative. Compile, analyze and
+test the actual API usage; do not rely only on model familiarity or remembered examples.
+
+Well-known does not mean automatically suitable. Evaluate security, maintenance, licensing,
+compatibility, performance and API quality together with public familiarity.
+
+Use ASP.NET Core Identity APIs directly for framework-owned sign-in, password, token, lockout,
+claims/roles primitives and authentication state. Product operations such as invitation,
+provisioning, tenant linkage, access activation/deactivation or eligibility remain application use
+cases when they carry product semantics. Granting or revoking a product role is a product decision
+even though its implementation uses public Identity APIs.
+
 ## Forbidden by default
 
 - generic repository over EF Core;
+- private wrappers that only rename a suitable public API;
 - direct persistence from UI;
 - service locator;
 - dynamic dictionaries as application contracts;
