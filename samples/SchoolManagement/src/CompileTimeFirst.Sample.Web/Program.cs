@@ -58,7 +58,7 @@ builder.Services.AddScoped<SubjectsViewModel>();
 builder.Services.AddScoped<GradesViewModel>();
 builder.Services.AddScoped<QuestionsViewModel>();
 builder.Services.AddScoped<QuestionOptionsViewModel>();
-builder.Services.AddScoped<AutoSubjectsViewModel>();
+//builder.Services.AddScoped<AutoSubjectsViewModel>();
 
 builder.Services
     .AddControllers()

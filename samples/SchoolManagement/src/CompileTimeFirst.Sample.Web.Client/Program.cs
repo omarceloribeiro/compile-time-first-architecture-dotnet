@@ -6,6 +6,6 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
 builder.Services.AddODataReadClient(new Uri(builder.HostEnvironment.BaseAddress));
-builder.Services.AddScoped<AutoSubjectsViewModel>();
+//builder.Services.AddScoped<AutoSubjectsViewModel>();
 
 await builder.Build().RunAsync();
