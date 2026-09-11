@@ -1,0 +1,43 @@
+@using CompileTimeFirst.Sample.ReadModel
+@using CompileTimeFirst.Sample.Web.Services
+@inject IReadSchoolDbFactory ReadDbFactory
+@inject IReadQueryExecutor QueryExecutor
+@inject CurrentTenantSelection TenantSelection
+@inject NavigationManager Navigation
+
+@* Stands in for sign-in so the sample can demonstrate tenant isolation. In production the tenant
+   comes from a claim resolved on the server and is never chosen by the client. *@
+<div class="tenant-selector d-flex align-items-center gap-2">
+    <label for="tenant" class="form-label mb-0 small">Tenant</label>
+    <select id="tenant" class="form-select form-select-sm" value="@TenantSelection.TenantId"
+            @onchange="OnTenantChangedAsync">
+        <option value="">No tenant selected</option>
+        @foreach (var tenant in tenants)
+        {
+            <option value="@tenant.Id">@tenant.Name</option>
+        }
+    </select>
+</div>
+
+@code {
+    private IReadOnlyList<TenantReadItem> tenants = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Tenants are the one entity outside the tenant filter - a selector has to list them before
+        // a tenant exists. Everything else is invisible until one is chosen.
+        await using var db = await ReadDbFactory.CreateAsync();
+        tenants = await QueryExecutor.ToListAsync(db.Tenants.OrderBy(x => x.Name));
+    }
+
+    private Task OnTenantChangedAsync(ChangeEventArgs args)
+    {
+        TenantSelection.Select(
+            Guid.TryParse(args.Value?.ToString(), out var tenantId) ? tenantId : null);
+
+        // Every screen reloads under the new tenant; state materialized for the previous one is
+        // discarded rather than filtered after the fact.
+        Navigation.Refresh(forceReload: true);
+        return Task.CompletedTask;
+    }
+}

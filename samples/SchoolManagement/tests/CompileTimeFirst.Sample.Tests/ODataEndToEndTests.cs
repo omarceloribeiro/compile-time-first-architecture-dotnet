@@ -72,10 +72,13 @@ public sealed class ODataEndToEndTests
         await using var db = await contextFactory.CreateDbContextAsync();
 
         db.Subjects.AddRange(
-            new Subject { Id = Guid.NewGuid(), Name = "Mathematics" },
-            new Subject { Id = Guid.NewGuid(), Name = "Science" });
+            new Subject(Guid.NewGuid(), SeededTenantId, "Mathematics"),
+            new Subject(Guid.NewGuid(), SeededTenantId, "Science"));
         await db.SaveChangesAsync();
     }
+
+    // The tenant the Web host seeds. Selecting it stands in for the sign-in the sample does not have.
+    private static readonly Guid SeededTenantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
     private static WebApplicationFactory<Program> CreateFactory()
     {
@@ -84,7 +87,10 @@ public sealed class ODataEndToEndTests
             {
                 builder.UseEnvironment("Development");
                 builder.ConfigureServices(services =>
-                    services.AddDataProtection().UseEphemeralDataProtectionProvider());
+                {
+                    services.AddDataProtection().UseEphemeralDataProtectionProvider();
+                    services.AddScoped<ICurrentUser>(_ => new TestCurrentUser(SeededTenantId));
+                });
             });
     }
 }

@@ -1,55 +1,65 @@
 @page "/questions"
 @rendermode InteractiveServer
-@inject QuestionsViewModel ViewModel
+@using System.ComponentModel.DataAnnotations
+@using CompileTimeFirst.Sample.Application
+@using CompileTimeFirst.Sample.Application.Questions
+@using CompileTimeFirst.Sample.ReadModel
+@inject IReadSchoolDbFactory ReadDbFactory
+@inject IReadQueryExecutor QueryExecutor
+@inject ICreateQuestionUseCase CreateQuestion
 
 <PageTitle>Create Question</PageTitle>
 
 <h1>Create Question</h1>
 
-@if (ViewModel.SuccessMessage is not null)
+@if (successMessage is not null)
 {
-    <div class="alert alert-success">@ViewModel.SuccessMessage</div>
+    <div class="alert alert-success">@successMessage</div>
 }
 
-@if (ViewModel.ErrorMessage is not null)
+@if (errorMessage is not null)
 {
-    <div class="alert alert-danger">@ViewModel.ErrorMessage</div>
+    <div class="alert alert-danger">@errorMessage</div>
 }
 
 <div class="card">
     <div class="card-body">
-        <EditForm Model="ViewModel" OnValidSubmit="HandleCreateAsync">
+        <EditForm Model="form" OnValidSubmit="HandleCreateAsync">
+            <DataAnnotationsValidator />
             <div class="mb-3">
                 <label for="statement" class="form-label">Statement</label>
                 <InputTextArea id="statement" class="form-control" rows="5"
-                               @bind-Value="ViewModel.Statement" disabled="@ViewModel.IsBusy" />
+                               @bind-Value="form.Statement" disabled="@isBusy" />
+                <ValidationMessage For="@(() => form.Statement)" />
             </div>
 
             <div class="row">
                 <div class="col-md-4 mb-3">
                     <label for="subject" class="form-label">Subject</label>
-                    <InputSelect id="subject" class="form-select" @bind-Value="ViewModel.SubjectId" disabled="@ViewModel.IsBusy">
+                    <InputSelect id="subject" class="form-select" @bind-Value="form.SubjectId" disabled="@isBusy">
                         <option value="">Select a subject</option>
-                        @foreach (var subject in ViewModel.Subjects)
+                        @foreach (var subject in subjects)
                         {
                             <option value="@subject.Id">@subject.Name</option>
                         }
                     </InputSelect>
+                    <ValidationMessage For="@(() => form.SubjectId)" />
                 </div>
                 <div class="col-md-4 mb-3">
                     <label for="grade" class="form-label">Grade</label>
-                    <InputSelect id="grade" class="form-select" @bind-Value="ViewModel.GradeId" disabled="@ViewModel.IsBusy">
+                    <InputSelect id="grade" class="form-select" @bind-Value="form.GradeId" disabled="@isBusy">
                         <option value="">Select a grade</option>
-                        @foreach (var grade in ViewModel.Grades)
+                        @foreach (var grade in grades)
                         {
                             <option value="@grade.Id">@grade.Name</option>
                         }
                     </InputSelect>
+                    <ValidationMessage For="@(() => form.GradeId)" />
                 </div>
                 <div class="col-md-4 mb-3">
                     <label for="questionType" class="form-label">Type</label>
-                    <InputSelect id="questionType" class="form-select" @bind-Value="ViewModel.Type"
-                                 @bind-Value:after="ViewModel.ApplyTypeDefaults" disabled="@ViewModel.IsBusy">
+                    <InputSelect id="questionType" class="form-select" @bind-Value="form.Type"
+                                 @bind-Value:after="ApplyTypeDefaults" disabled="@isBusy">
                         @foreach (var type in Enum.GetValues<QuestionType>())
                         {
                             <option value="@type">@type</option>
@@ -58,44 +68,44 @@
                 </div>
             </div>
 
-            @if (ViewModel.UsesOptions)
+            @if (UsesOptions)
             {
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <h5 class="mb-0">Options</h5>
-                    @if (ViewModel.AllowsCustomOptions)
+                    @if (AllowsCustomOptions)
                     {
                         <button type="button" class="btn btn-outline-secondary btn-sm"
-                                @onclick="ViewModel.AddOption" disabled="@ViewModel.IsBusy">
+                                @onclick="AddOption" disabled="@isBusy">
                             Add option
                         </button>
                     }
                 </div>
 
-                @foreach (var option in ViewModel.Options)
+                @foreach (var option in options)
                 {
                     <div class="input-group mb-2">
                         <span class="input-group-text">@option.Order</span>
                         <InputText class="form-control" @bind-Value="option.Text"
-                                   disabled="@(ViewModel.IsBusy || ViewModel.Type == QuestionType.TrueOrFalse)" />
+                                   disabled="@(isBusy || form.Type == QuestionType.TrueOrFalse)" />
                         <span class="input-group-text">
-                            @if (ViewModel.Type == QuestionType.MultipleChoice)
+                            @if (form.Type == QuestionType.MultipleChoice)
                             {
                                 <InputCheckbox class="form-check-input mt-0 me-2" @bind-Value="option.IsCorrect"
-                                               disabled="@ViewModel.IsBusy" />
+                                               disabled="@isBusy" />
                             }
                             else
                             {
                                 <input class="form-check-input mt-0 me-2" type="radio" name="correctOption"
-                                       checked="@option.IsCorrect" @onchange="@(() => ViewModel.MarkSingleCorrect(option))"
-                                       disabled="@ViewModel.IsBusy" />
+                                       checked="@option.IsCorrect" @onchange="@(() => MarkSingleCorrect(option))"
+                                       disabled="@isBusy" />
                             }
                             Correct
                         </span>
-                        @if (ViewModel.AllowsCustomOptions)
+                        @if (AllowsCustomOptions)
                         {
                             <button type="button" class="btn btn-outline-danger"
-                                    @onclick="@(() => ViewModel.RemoveOption(option))"
-                                    disabled="@(ViewModel.IsBusy || ViewModel.Options.Count <= 2)">
+                                    @onclick="@(() => RemoveOption(option))"
+                                    disabled="@(isBusy || options.Count <= QuestionShape.MinObjectiveOptions)">
                                 Remove
                             </button>
                         }
@@ -103,8 +113,8 @@
                 }
             }
 
-            <button type="submit" class="btn btn-primary mt-3" disabled="@ViewModel.IsBusy">
-                @if (ViewModel.IsBusy)
+            <button type="submit" class="btn btn-primary mt-3" disabled="@isBusy">
+                @if (isBusy)
                 {
                     <span class="spinner-border spinner-border-sm me-2" role="status"></span>
                 }
@@ -115,13 +125,138 @@
 </div>
 
 @code {
+    private IReadOnlyList<SelectOption> subjects = [];
+    private IReadOnlyList<SelectOption> grades = [];
+    private List<OptionEditor> options = [];
+    private QuestionForm form = new();
+    private bool isBusy;
+    private string? errorMessage;
+    private string? successMessage;
+
+    // The editor shape comes from the application layer, so this screen stays a projection of a
+    // rule it does not own.
+    private bool UsesOptions => QuestionShape.UsesOptions(form.Type);
+    private bool AllowsCustomOptions => QuestionShape.AllowsCustomOptions(form.Type);
+
     protected override async Task OnInitializedAsync()
     {
-        await ViewModel.LoadAsync();
+        await using var db = await ReadDbFactory.CreateAsync();
+
+        subjects = await QueryExecutor.ToListAsync(
+            db.Subjects
+                .Where(x => x.IsActive)
+                .OrderBy(x => x.Name)
+                .Select(x => new SelectOption(x.Id, x.Name)));
+
+        grades = await QueryExecutor.ToListAsync(
+            db.Grades
+                .Where(x => x.IsActive)
+                .OrderBy(x => x.Order)
+                .Select(x => new SelectOption(x.Id, x.Name)));
+
+        ApplyTypeDefaults();
+    }
+
+    private void ApplyTypeDefaults()
+    {
+        errorMessage = null;
+        options = [.. QuestionShape.DefaultOptions(form.Type)
+            .Select(draft => new OptionEditor(draft.Text, draft.IsCorrect, draft.Order))];
+    }
+
+    private void AddOption()
+    {
+        if (!AllowsCustomOptions || options.Count >= QuestionShape.MaxOptions)
+        {
+            return;
+        }
+
+        options.Add(new OptionEditor(string.Empty, false, options.Count + 1));
+    }
+
+    private void RemoveOption(OptionEditor option)
+    {
+        if (!AllowsCustomOptions || options.Count <= QuestionShape.MinObjectiveOptions)
+        {
+            return;
+        }
+
+        options.Remove(option);
+        NormalizeOrders();
+
+        if (QuestionShape.RequiresExactlyOneCorrectOption(form.Type) && options.TrueForAll(x => !x.IsCorrect))
+        {
+            options[0].IsCorrect = true;
+        }
+    }
+
+    private void MarkSingleCorrect(OptionEditor selected)
+    {
+        foreach (var option in options)
+        {
+            option.IsCorrect = ReferenceEquals(option, selected);
+        }
+    }
+
+    private void NormalizeOrders()
+    {
+        for (var index = 0; index < options.Count; index++)
+        {
+            options[index].Order = index + 1;
+        }
     }
 
     private async Task HandleCreateAsync()
     {
-        await ViewModel.CreateAsync();
+        errorMessage = null;
+        successMessage = null;
+        isBusy = true;
+
+        try
+        {
+            var result = await CreateQuestion.ExecuteAsync(
+                new CreateQuestionRequest(
+                    form.Statement,
+                    form.SubjectId!.Value,
+                    form.GradeId!.Value,
+                    form.Type,
+                    [.. options.Select(x => new CreateQuestionOptionRequest(x.Text, x.IsCorrect, x.Order))]));
+
+            form = new QuestionForm();
+            ApplyTypeDefaults();
+            successMessage = $"Question created with id {result.QuestionId}.";
+        }
+        catch (Exception exception) when (exception is UseCaseValidationException or EntityNotFoundException)
+        {
+            errorMessage = exception.Message;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private sealed record SelectOption(Guid Id, string Name);
+
+    private sealed class OptionEditor(string text, bool isCorrect, int order)
+    {
+        public string Text { get; set; } = text;
+        public bool IsCorrect { get; set; } = isCorrect;
+        public int Order { get; set; } = order;
+    }
+
+    private sealed class QuestionForm
+    {
+        [Required(ErrorMessage = "Statement is required.")]
+        [StringLength(QuestionShape.MaxStatementLength, ErrorMessage = "Statement is too long.")]
+        public string Statement { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Subject is required.")]
+        public Guid? SubjectId { get; set; }
+
+        [Required(ErrorMessage = "Grade is required.")]
+        public Guid? GradeId { get; set; }
+
+        public QuestionType Type { get; set; } = QuestionType.SingleChoice;
     }
 }

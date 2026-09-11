@@ -22,7 +22,9 @@ public sealed record CreateQuestionOptionRequest(string Text, bool IsCorrect, in
 public sealed record CreateQuestionResult(Guid QuestionId);
 
 public sealed class CreateQuestionUseCase(
-    IDbContextFactory<SchoolDbContext> contextFactory)
+    IDbContextFactory<SchoolDbContext> contextFactory,
+    ICurrentUser currentUser,
+    TimeProvider timeProvider)
     : UseCaseBase<CreateQuestionRequest, CreateQuestionResult>,
       ICreateQuestionUseCase
 {
@@ -40,28 +42,22 @@ public sealed class CreateQuestionUseCase(
 
         if (!referencesExist)
         {
-            throw new InvalidOperationException("Subject or grade is invalid.");
+            throw new EntityNotFoundException("Subject or grade is invalid.");
         }
 
-        var question = new Question
+        var question = new Question(
+            Guid.NewGuid(),
+            RequireTenant(currentUser),
+            request.SubjectId,
+            request.GradeId,
+            request.Statement.Trim(),
+            request.Type,
+            timeProvider.GetUtcNow());
+
+        foreach (var option in request.Options.OrderBy(x => x.Order))
         {
-            Id = Guid.NewGuid(),
-            Statement = request.Statement.Trim(),
-            SubjectId = request.SubjectId,
-            GradeId = request.GradeId,
-            Type = request.Type,
-            CreatedAt = DateTimeOffset.UtcNow,
-            Options = request.Options
-                .OrderBy(x => x.Order)
-                .Select(x => new QuestionOption
-                {
-                    Id = Guid.NewGuid(),
-                    Text = x.Text.Trim(),
-                    IsCorrect = x.IsCorrect,
-                    Order = x.Order
-                })
-                .ToList()
-        };
+            question.AddOption(option.Text.Trim(), option.IsCorrect, option.Order);
+        }
 
         db.Questions.Add(question);
         await db.SaveChangesAsync(cancellationToken);
@@ -74,14 +70,14 @@ public sealed class CreateQuestionUseCase(
         ArgumentNullException.ThrowIfNull(request);
 
         var statement = request.Statement?.Trim();
-        if (string.IsNullOrWhiteSpace(statement) || statement.Length > 4_000)
+        if (string.IsNullOrWhiteSpace(statement) || statement.Length > QuestionShape.MaxStatementLength)
         {
-            throw new ArgumentException("Statement must contain between 1 and 4,000 characters.");
+            throw new UseCaseValidationException("Statement must contain between 1 and 4,000 characters.");
         }
 
         if (!Enum.IsDefined(request.Type))
         {
-            throw new ArgumentException("Question type is invalid.");
+            throw new UseCaseValidationException("Question type is invalid.");
         }
 
         ArgumentNullException.ThrowIfNull(request.Options);
@@ -89,57 +85,56 @@ public sealed class CreateQuestionUseCase(
         foreach (var option in request.Options)
         {
             var text = option.Text?.Trim();
-            if (string.IsNullOrWhiteSpace(text) || text.Length > 1_000)
+            if (string.IsNullOrWhiteSpace(text) || text.Length > QuestionShape.MaxOptionTextLength)
             {
-                throw new ArgumentException("Option text must contain between 1 and 1,000 characters.");
+                throw new UseCaseValidationException("Option text must contain between 1 and 1,000 characters.");
             }
 
-            if (option.Order is < 1 or > 100)
+            if (option.Order is < 1 || option.Order > QuestionShape.MaxOptions)
             {
-                throw new ArgumentException("Option order must be between 1 and 100.");
+                throw new UseCaseValidationException("Option order must be between 1 and 100.");
             }
         }
 
         if (request.Options.Select(x => x.Order).Distinct().Count() != request.Options.Count)
         {
-            throw new ArgumentException("Option orders must be unique within the question.");
+            throw new UseCaseValidationException("Option orders must be unique within the question.");
         }
 
-        if (request.Type is QuestionType.SingleChoice or QuestionType.MultipleChoice &&
-            request.Options.Count < 2)
+        if (QuestionShape.AllowsCustomOptions(request.Type) &&
+            request.Options.Count < QuestionShape.MinObjectiveOptions)
         {
-            throw new ArgumentException("Objective questions require at least two options.");
+            throw new UseCaseValidationException("Objective questions require at least two options.");
         }
 
         if (request.Type == QuestionType.SingleChoice && request.Options.Count(x => x.IsCorrect) != 1)
         {
-            throw new ArgumentException("Single-choice questions require exactly one correct option.");
+            throw new UseCaseValidationException("Single-choice questions require exactly one correct option.");
         }
 
         if (request.Type == QuestionType.MultipleChoice && request.Options.All(x => !x.IsCorrect))
         {
-            throw new ArgumentException("Multiple-choice questions require at least one correct option.");
+            throw new UseCaseValidationException("Multiple-choice questions require at least one correct option.");
         }
 
         if (request.Type == QuestionType.TrueOrFalse)
         {
-            var orderedOptions = request.Options.OrderBy(x => x.Order).ToArray();
-            var hasExpectedOptions = orderedOptions.Length == 2 &&
-                orderedOptions[0].Order == 1 &&
-                orderedOptions[0].Text.Trim().Equals("True", StringComparison.OrdinalIgnoreCase) &&
-                orderedOptions[1].Order == 2 &&
-                orderedOptions[1].Text.Trim().Equals("False", StringComparison.OrdinalIgnoreCase);
+            var orderedOptions = request.Options
+                .OrderBy(x => x.Order)
+                .Select(x => new QuestionOptionDraft(x.Text, x.IsCorrect, x.Order))
+                .ToArray();
 
-            if (!hasExpectedOptions || orderedOptions.Count(x => x.IsCorrect) != 1)
+            if (!QuestionShape.MatchesTrueOrFalseShape(orderedOptions) ||
+                orderedOptions.Count(x => x.IsCorrect) != 1)
             {
-                throw new ArgumentException(
+                throw new UseCaseValidationException(
                     "True-or-false questions require ordered True and False options and exactly one correct option.");
             }
         }
 
-        if (request.Type == QuestionType.OpenText && request.Options.Count != 0)
+        if (!QuestionShape.UsesOptions(request.Type) && request.Options.Count != 0)
         {
-            throw new ArgumentException("Open-text questions cannot contain options.");
+            throw new UseCaseValidationException("Open-text questions cannot contain options.");
         }
     }
 }

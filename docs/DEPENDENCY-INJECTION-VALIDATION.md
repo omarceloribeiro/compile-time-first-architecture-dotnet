@@ -3,13 +3,13 @@
 ## Objective
 
 A successful C# compilation does not prove that the dependency-injection graph is valid. Missing
-registrations, invalid scopes, unconstructable ViewModels and unresolved Blazor injections can
+registrations, invalid scopes, unconstructable services and unresolved Blazor injections can
 otherwise survive until a route is visited.
 
 ## Validation layers
 
 1. Composition roots enable `ValidateOnBuild` and `ValidateScopes`.
-2. `eng/DependencyInjectionGraphValidator.cs` resolves all marker-based `IUseCase` and `IViewModel`
+2. `eng/DependencyInjectionGraphValidator.cs` resolves all marker-based `IUseCase`
    implementations and validates Blazor constructors, `[Inject]` properties and keyed services.
 3. `Directory.Build.targets` executes the already-built application with `--validate-di` after each
    opted-in composition-root build.

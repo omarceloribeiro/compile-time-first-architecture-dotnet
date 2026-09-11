@@ -10,6 +10,7 @@ public sealed class SchoolODataReadScope(
 {
     private readonly ReadOnlySchoolDbContext _db = contextFactory.CreateDbContext();
 
+    public IQueryable<TenantReadItem> Tenants => _db.Tenants;
     public IQueryable<SubjectReadItem> Subjects => _db.Subjects;
     public IQueryable<GradeReadItem> Grades => _db.Grades;
     public IQueryable<QuestionReadItem> Questions => _db.Questions;

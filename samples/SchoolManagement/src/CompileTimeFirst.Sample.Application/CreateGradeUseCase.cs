@@ -1,4 +1,6 @@
+using System.ComponentModel.DataAnnotations;
 using CompileTimeFirst.Sample.Data;
+using CompileTimeFirst.Sample.Domain;
 using Microsoft.EntityFrameworkCore;
 
 namespace CompileTimeFirst.Sample.Application.Grades;
@@ -10,11 +12,17 @@ public interface ICreateGradeUseCase : IUseCase
         CancellationToken cancellationToken = default);
 }
 
-public sealed record CreateGradeRequest(string Name, int Order);
+public sealed record CreateGradeRequest(
+    [property: Required(ErrorMessage = "Grade name is required.")]
+    [property: StringLength(100, ErrorMessage = "Grade name must contain at most 100 characters.")]
+    string Name,
+    [property: Range(1, 20, ErrorMessage = "Grade order must be between 1 and 20.")]
+    int Order);
 public sealed record CreateGradeResult(Guid GradeId);
 
 public sealed class CreateGradeUseCase(
-    IDbContextFactory<SchoolDbContext> contextFactory)
+    IDbContextFactory<SchoolDbContext> contextFactory,
+    ICurrentUser currentUser)
     : UseCaseBase<CreateGradeRequest, CreateGradeResult>,
       ICreateGradeUseCase
 {
@@ -31,7 +39,7 @@ public sealed class CreateGradeUseCase(
 
         if (nameAlreadyExists)
         {
-            throw new InvalidOperationException($"An active grade with name '{request.Name}' already exists.");
+            throw new UseCaseValidationException($"An active grade with name '{request.Name}' already exists.");
         }
 
         var orderAlreadyExists = await db.Grades
@@ -39,16 +47,10 @@ public sealed class CreateGradeUseCase(
 
         if (orderAlreadyExists)
         {
-            throw new InvalidOperationException($"An active grade with order '{request.Order}' already exists.");
+            throw new UseCaseValidationException($"An active grade with order '{request.Order}' already exists.");
         }
 
-        var grade = new Domain.Grade
-        {
-            Id = Guid.NewGuid(),
-            Name = request.Name.Trim(),
-            Order = request.Order,
-            IsActive = true
-        };
+        var grade = new Domain.Grade(Guid.NewGuid(), RequireTenant(currentUser), request.Name.Trim(), request.Order);
 
         db.Grades.Add(grade);
         await db.SaveChangesAsync(cancellationToken);
@@ -60,12 +62,12 @@ public sealed class CreateGradeUseCase(
     {
         if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 100)
         {
-            throw new ArgumentException("Grade name must contain between 1 and 100 characters.");
+            throw new UseCaseValidationException("Grade name must contain between 1 and 100 characters.");
         }
 
         if (request.Order < 1 || request.Order > 20)
         {
-            throw new ArgumentException("Grade order must be between 1 and 20.");
+            throw new UseCaseValidationException("Grade order must be between 1 and 20.");
         }
     }
 }

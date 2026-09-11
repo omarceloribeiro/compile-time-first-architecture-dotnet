@@ -1,6 +1,6 @@
 # Arquitetura Compile-Time First para .NET
 
-Referência v0.4 de arquitetura .NET fortemente tipada, simples para humanos e previsível para agentes de IA.
+Referência v0.5 de arquitetura .NET fortemente tipada, simples para humanos e previsível para agentes de IA.
 
 > Se uma inconsistência puder ser encontrada na compilação, ela não deve esperar até o runtime.
 
@@ -17,9 +17,10 @@ Este repositório não pretende ser um framework. A proposta é documentar um co
 - `IQueryable<T>`, contexto e read scope permanecem locais à operação;
 - dashboards, indicadores, relatórios e exportações são casos de uso de leitura;
 - `IDbContextFactory` cria um contexto por operação;
-- ViewModels permanecem livres para mudar com a tela;
+- o estado de tela vive no próprio componente e muda junto com a tela; não há camada de ViewModel;
 - contratos da aplicação permanecem estáveis;
-- Server e WebAssembly podem compartilhar consultas LINQ portáveis por providers diferentes;
+- Server e WebAssembly podem compartilhar consultas LINQ portáveis por providers diferentes,
+  em um caminho ainda experimental;
 - a spec escolhe o componente e o agente não inventa limites ou comportamento adaptativo;
 - o agente deve compilar, testar e corrigir antes de entregar.
 
@@ -35,6 +36,21 @@ terminais assíncronos do EF Core e do OData no navegador.
 O guia [Well-Known First e transparência semântica](docs/WELL-KNOWN-FIRST.md) detalha o custo de uma
 linguagem privada, o papel do design system e como o uso explícito de uma biblioteca visual pode
 tornar uma futura migração mais mecânica para agentes de IA.
+
+## Experimental: Interactive Auto, WebAssembly e OData
+
+**Interactive Server é o caminho suportado.** O código de Interactive Auto, WebAssembly e OData no
+navegador presente no sample é experimental e não é um caminho pronto para produção.
+
+Ele permanece na mesma solution de propósito: Interactive Auto exercita Server e WebAssembly a
+partir de um único componente, então um sample separado duplicaria hosts e perderia essa cobertura.
+O custo de mantê-lo é controlado por regra, não por isolamento — nada novo é gerado para esse
+caminho a menos que a spec da feature peça Interactive Auto explicitamente. Veja a seção
+"Experimental render modes" em [AGENTS.md](AGENTS.md).
+
+Valide antes de habilitar em produção: autenticação e autorização na fronteira OData, limites de
+consulta OData, compatibilidade com trimming/AOT e a propagação de tenant, que atravessa uma
+fronteira HTTP em vez de um circuito Blazor.
 
 Consulte também [Architecture.md](Architecture.md), [AGENTS.md](AGENTS.md) e o
 [ADR 0006](docs/adr/0006-well-known-first.md).

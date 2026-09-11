@@ -1,7 +1,15 @@
-# Interactive Auto + OData Pattern
+# Interactive Auto + OData Pattern (Experimental)
+
+> **Status: experimental.** Interactive Server is the supported path. Do not create files, classes,
+> endpoints or render-mode attributes for this pattern unless a feature specification explicitly
+> requests Interactive Auto. See ADR 0009 and "Experimental render modes" in `AGENTS.md`.
+>
+> Known gaps: authentication across the OData boundary, OData query limits, trimming and AOT, and
+> tenant propagation, which crosses HTTP rather than a Blazor circuit.
+
 
 ## Goal
-Allow a shared ViewModel to compose the same portable LINQ query in Interactive Server and Interactive WebAssembly.
+Allow one component to compose the same portable LINQ query in Interactive Server and Interactive WebAssembly.
 
 ## Providers
 
@@ -33,7 +41,7 @@ provider remains optional and must be enabled only after the required spike.
 ## Validated sample boundary
 
 The School Management sample includes `/auto-subjects`, a shared Interactive Auto component and
-ViewModel. The server resolves an EF Core read provider and the WebAssembly client resolves a
+component. The server resolves an EF Core read provider and the WebAssembly client resolves a
 Microsoft.OData.Client provider. Both execute the same portable `Where` and `OrderBy` query through
 `IReadQueryExecutor`. In WebAssembly, Microsoft.OData.Client translates LINQ into the OData URI and
 the browser `HttpClient` asynchronously downloads and materializes the JSON response. This avoids

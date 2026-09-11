@@ -1,35 +1,33 @@
-# School Management architecture rules
+# School Management sample — local rules
 
-## Well-Known First
+The architecture rules live at the repository root: [`../../AGENTS.md`](../../AGENTS.md),
+[`../../Architecture.md`](../../Architecture.md), [`../../docs/ANALYZER-RULES.md`](../../docs/ANALYZER-RULES.md)
+and [`../../patterns/`](../../patterns/). This file records only what is specific to this sample, so
+there is one place to change when a rule changes.
 
-- Use public .NET, ASP.NET Core, EF Core, LINQ, HTTP/OData and Blazor APIs directly when adequate.
-- Do not add mechanical repositories, loggers, HTTP gateways or component wrappers that only rename
-  those APIs.
-- Product-specific abstractions are valid when they add product meaning, policy, a concrete
-  lifecycle/provider boundary or necessary external isolation.
-- `IReadQueryExecutor` owns the actual EF/OData async terminal boundary while query composition stays
-  on public `IQueryable<T>` and LINQ.
-- Official documentation and the installed package version are authoritative.
+## Concrete names
 
-## UI read/write boundary
+| Role | Type in this sample |
+|---|---|
+| Write context | `SchoolDbContext` |
+| Read context | `ReadOnlySchoolDbContext` |
+| Read surface | `IReadSchoolDb`, `IReadSchoolDbScope` |
+| Read scope factory | `IReadSchoolDbFactory` |
+| Read terminals | `IReadQueryExecutor` |
+| Shared model configuration | `DomainModelConfiguration` |
 
-- ViewModels and Blazor components never inject `SchoolDbContext` or its factory.
-- Incidental reads use `IReadSchoolDbFactory` and terminate through `IReadQueryExecutor`.
-- Dropdowns use `ToListAsync`; data grids, data tables, result lists, autocompletes and histories use `ToPageAsync`.
-- Uniqueness, count and existence use `SingleOrDefaultAsync`, `CountAsync` and `AnyAsync` through `IReadQueryExecutor`.
-- Every paged query defines deterministic ordering and a unique tie-breaker when its primary sort key is not unique.
-- The spec selects the control. ViewModels do not invent thresholds or adaptive behavior.
-- Queries and read scopes are local to one operation and never become component state.
-- Visual components receive materialized values, never a live `IQueryable` provider.
-- Writes invoke a specific `IUseCase`; ViewModels never persist through the read store.
-- Primary-constructor, direct-EF and escaped-read-state violations are compile-time errors from CTFA001–005 in both Web and Web.Client.
+## Composition roots
 
-## Dependency injection
+Two, deliberately: `CompileTimeFirst.Sample.Web` (Blazor) and `CompileTimeFirst.Sample.Console`
+(non-interactive). The Console root exists to prove the architecture does not assume a UI — it runs
+the same use cases with `ValidateBlazorComponents: false`.
 
-- Registrations are explicit.
-- Console and Web enable `ValidateOnBuild` and `ValidateScopes`.
-- The normal build executes `--validate-di` and resolves every `IUseCase`, `IViewModel`, Blazor
-  constructor, `[Inject]` property and keyed service.
+## Experimental surface
 
-See `../../docs/DEPENDENCY-INJECTION-VALIDATION.md` for the canonical DI documentation and
-`EXAMPLES-READ-ONLY-ARCHITECTURE.md` for examples.
+`OData/`, `CompileTimeFirst.Sample.Web.Client/` and `AutoSubjects.razor` belong to the experimental
+Interactive Auto path. See the sample README and ADR 0009 before touching them.
+
+## Storage
+
+EF Core InMemory, for demonstration only. It does not enforce foreign keys or composite keys, so it
+cannot demonstrate database-level guarantees.

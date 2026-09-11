@@ -1,24 +1,31 @@
 @page "/question-options"
 @rendermode InteractiveServer
-@inject QuestionOptionsViewModel ViewModel
+@using System.ComponentModel.DataAnnotations
+@using CompileTimeFirst.Sample.Application
+@using CompileTimeFirst.Sample.Application.QuestionOptions
+@using QuestionShape = CompileTimeFirst.Sample.Application.Questions.QuestionShape
+@using CompileTimeFirst.Sample.ReadModel
+@inject IReadSchoolDbFactory ReadDbFactory
+@inject IReadQueryExecutor QueryExecutor
+@inject ICreateQuestionOptionUseCase CreateQuestionOption
 
 <PageTitle>Question Options</PageTitle>
 
 <h1>Question Options</h1>
 
-@if (ViewModel.SuccessMessage is not null)
+@if (successMessage is not null)
 {
     <div class="alert alert-success alert-dismissible fade show">
-        @ViewModel.SuccessMessage
-        <button type="button" class="btn-close" @onclick="@(() => { ViewModel.SuccessMessage = null; })"></button>
+        @successMessage
+        <button type="button" class="btn-close" @onclick="@(() => successMessage = null)"></button>
     </div>
 }
 
-@if (ViewModel.ErrorMessage is not null)
+@if (errorMessage is not null)
 {
     <div class="alert alert-danger alert-dismissible fade show">
-        @ViewModel.ErrorMessage
-        <button type="button" class="btn-close" @onclick="@(() => { ViewModel.ErrorMessage = null; })"></button>
+        @errorMessage
+        <button type="button" class="btn-close" @onclick="@(() => errorMessage = null)"></button>
     </div>
 }
 
@@ -26,77 +33,69 @@
     <div class="col-md-5">
         <div class="card mb-4">
             <div class="card-body">
-                <h5 class="card-title">Questions (@ViewModel.QuestionsTotalCount)</h5>
-                @if (ViewModel.Questions.Count == 0)
+                <h5 class="card-title">Questions (@questionsTotalCount)</h5>
+                @if (questions.Count == 0)
                 {
                     <p class="text-muted">No questions found. Create some questions first.</p>
                 }
                 else
                 {
                     <div class="list-group" style="max-height: 600px; overflow-y: auto;">
-                        @foreach (var question in ViewModel.Questions)
+                        @foreach (var question in questions)
                         {
                             <button type="button"
-                                    class="list-group-item list-group-item-action @(ViewModel.SelectedQuestionId == question.Id ? "active" : "")"
-                                    @onclick="@(() => HandleSelectQuestionAsync(question.Id))">
+                                    class="list-group-item list-group-item-action @(selectedQuestionId == question.Id ? "active" : "")"
+                                    @onclick="@(() => SelectQuestionAsync(question.Id))">
                                 <div class="d-flex w-100 justify-content-between">
-                                    <h6 class="mb-1">
-                                        @{
-                                            var preview = question.Statement.Length > 50
-                                                ? question.Statement.Substring(0, 50) + "..."
-                                                : question.Statement;
-                                        }
-                                        @preview
-                                    </h6>
+                                    <h6 class="mb-1">@Preview(question.Statement)</h6>
                                     <small>@question.Type</small>
                                 </div>
                                 <small>@question.SubjectName - @question.GradeName</small>
                             </button>
                         }
                     </div>
-                    <nav class="d-flex justify-content-between align-items-center mt-3" aria-label="Questions pages">
-                        <button class="btn btn-outline-secondary btn-sm"
-                                disabled="@(!ViewModel.HasPreviousQuestionsPage)"
-                                @onclick="LoadPreviousQuestionsPageAsync">
-                            Previous
-                        </button>
-                        <span>Page @(ViewModel.QuestionsCurrentPage + 1) of @ViewModel.QuestionsTotalPages</span>
-                        <button class="btn btn-outline-secondary btn-sm"
-                                disabled="@(!ViewModel.HasNextQuestionsPage)"
-                                @onclick="LoadNextQuestionsPageAsync">
-                            Next
-                        </button>
-                    </nav>
+
+                    <div class="mt-3">
+                        <PaginationNav CurrentPage="questionsPage" TotalCount="questionsTotalCount"
+                                       PageSize="QuestionsPageSize" OnPageRequested="LoadQuestionsAsync"
+                                       Label="Questions pages" />
+                    </div>
                 }
             </div>
         </div>
     </div>
 
     <div class="col-md-7">
-        @if (ViewModel.SelectedQuestionId.HasValue)
+        @if (selectedQuestionId.HasValue)
         {
             <div class="card mb-4">
                 <div class="card-body">
                     <h5 class="card-title">Add Option</h5>
-                    <EditForm Model="ViewModel" OnValidSubmit="HandleCreateAsync">
+                    <EditForm Model="form" OnValidSubmit="HandleCreateAsync">
+                        <DataAnnotationsValidator />
                         <div class="mb-3">
                             <label for="optionText" class="form-label">Text</label>
-                            <InputTextArea id="optionText" class="form-control" rows="3" @bind-Value="ViewModel.NewText" disabled="@ViewModel.IsBusy" />
+                            <InputTextArea id="optionText" class="form-control" rows="3"
+                                           @bind-Value="form.Text" disabled="@isBusy" />
+                            <ValidationMessage For="@(() => form.Text)" />
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <div class="form-check">
-                                    <InputCheckbox id="optionIsCorrect" class="form-check-input" @bind-Value="ViewModel.NewIsCorrect" disabled="@ViewModel.IsBusy" />
+                                    <InputCheckbox id="optionIsCorrect" class="form-check-input"
+                                                   @bind-Value="form.IsCorrect" disabled="@isBusy" />
                                     <label for="optionIsCorrect" class="form-check-label">Is Correct Answer</label>
                                 </div>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="optionOrder" class="form-label">Order</label>
-                                <InputNumber id="optionOrder" class="form-control" @bind-Value="ViewModel.NewOrder" disabled="@ViewModel.IsBusy" />
+                                <InputNumber id="optionOrder" class="form-control"
+                                             @bind-Value="form.Order" disabled="@isBusy" />
+                                <ValidationMessage For="@(() => form.Order)" />
                             </div>
                         </div>
-                        <button type="submit" class="btn btn-primary" disabled="@ViewModel.IsBusy">
-                            @if (ViewModel.IsBusy)
+                        <button type="submit" class="btn btn-primary" disabled="@isBusy">
+                            @if (isBusy)
                             {
                                 <span class="spinner-border spinner-border-sm me-2" role="status"></span>
                             }
@@ -108,8 +107,8 @@
 
             <div class="card">
                 <div class="card-body">
-                    <h5 class="card-title">Options (@ViewModel.OptionsTotalCount)</h5>
-                    @if (ViewModel.Options.Count == 0)
+                    <h5 class="card-title">Options (@optionsTotalCount)</h5>
+                    @if (options.Count == 0)
                     {
                         <p class="text-muted">No options yet.</p>
                     }
@@ -124,7 +123,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var option in ViewModel.Options)
+                                @foreach (var option in options)
                                 {
                                     <tr class="@(option.IsCorrect ? "table-success" : "")">
                                         <td><strong>@option.Order</strong></td>
@@ -132,26 +131,17 @@
                                         <td>
                                             @if (option.IsCorrect)
                                             {
-                                                <span class="badge bg-success">✓ Correct</span>
+                                                <span class="badge bg-success">Correct</span>
                                             }
                                         </td>
                                     </tr>
                                 }
                             </tbody>
                         </table>
-                        <nav class="d-flex justify-content-between align-items-center" aria-label="Options pages">
-                            <button class="btn btn-outline-secondary btn-sm"
-                                    disabled="@(!ViewModel.HasPreviousOptionsPage)"
-                                    @onclick="LoadPreviousOptionsPageAsync">
-                                Previous
-                            </button>
-                            <span>Page @(ViewModel.OptionsCurrentPage + 1) of @ViewModel.OptionsTotalPages</span>
-                            <button class="btn btn-outline-secondary btn-sm"
-                                    disabled="@(!ViewModel.HasNextOptionsPage)"
-                                    @onclick="LoadNextOptionsPageAsync">
-                                Next
-                            </button>
-                        </nav>
+
+                        <PaginationNav CurrentPage="optionsPage" TotalCount="optionsTotalCount"
+                                       PageSize="OptionsPageSize" OnPageRequested="LoadOptionsAsync"
+                                       Label="Options pages" />
                     }
                 </div>
             </div>
@@ -166,32 +156,131 @@
 </div>
 
 @code {
-    protected override async Task OnInitializedAsync()
+    private const int QuestionsPageSize = 10;
+    private const int OptionsPageSize = 10;
+
+    private IReadOnlyList<QuestionListItem> questions = [];
+    private IReadOnlyList<QuestionOptionReadItem> options = [];
+    private OptionForm form = new();
+    private Guid? selectedQuestionId;
+    private int questionsPage;
+    private int questionsTotalCount;
+    private int optionsPage;
+    private int optionsTotalCount;
+    private bool isBusy;
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync() => await LoadQuestionsAsync(0);
+
+    private async Task LoadQuestionsAsync(int page)
     {
-        await ViewModel.LoadAsync();
+        page = Math.Max(0, page);
+
+        await using var db = await ReadDbFactory.CreateAsync();
+        var query = from question in db.Questions
+                    join subject in db.Subjects on question.SubjectId equals subject.Id
+                    join grade in db.Grades on question.GradeId equals grade.Id
+                    orderby question.CreatedAt descending, question.Id
+                    select new QuestionListItem(
+                        question.Id,
+                        question.Statement,
+                        question.Type,
+                        subject.Name,
+                        grade.Name);
+
+        var result = await QueryExecutor.ToPageAsync(query, page * QuestionsPageSize, QuestionsPageSize);
+
+        questions = result.Items;
+        questionsTotalCount = result.TotalCount;
+        questionsPage = page;
     }
 
-    private async Task HandleSelectQuestionAsync(Guid questionId)
+    private async Task LoadOptionsAsync(int page)
     {
-        ViewModel.ErrorMessage = null;
-        ViewModel.SuccessMessage = null;
-        await ViewModel.SelectQuestionAsync(questionId);
+        if (selectedQuestionId is not { } questionId)
+        {
+            options = [];
+            optionsTotalCount = 0;
+            optionsPage = 0;
+            return;
+        }
+
+        page = Math.Max(0, page);
+
+        await using var db = await ReadDbFactory.CreateAsync();
+        var result = await QueryExecutor.ToPageAsync(
+            db.QuestionOptions
+                .Where(option => option.QuestionId == questionId)
+                .OrderBy(option => option.Order)
+                .ThenBy(option => option.Id),
+            page * OptionsPageSize,
+            OptionsPageSize);
+
+        options = result.Items;
+        optionsTotalCount = result.TotalCount;
+        optionsPage = page;
+    }
+
+    private async Task SelectQuestionAsync(Guid questionId)
+    {
+        errorMessage = null;
+        successMessage = null;
+        selectedQuestionId = questionId;
+        form = new OptionForm();
+        await LoadOptionsAsync(0);
     }
 
     private async Task HandleCreateAsync()
     {
-        await ViewModel.CreateAsync();
+        if (selectedQuestionId is not { } questionId)
+        {
+            errorMessage = "Please select a question first.";
+            return;
+        }
+
+        errorMessage = null;
+        successMessage = null;
+        isBusy = true;
+
+        try
+        {
+            var result = await CreateQuestionOption.ExecuteAsync(
+                new CreateQuestionOptionRequest(questionId, form.Text, form.IsCorrect, form.Order));
+
+            form = new OptionForm { Order = optionsTotalCount + 1 };
+            successMessage = $"Option created with id {result.OptionId}.";
+            await LoadOptionsAsync(optionsPage);
+        }
+        catch (Exception exception) when (exception is UseCaseValidationException or EntityNotFoundException)
+        {
+            errorMessage = exception.Message;
+        }
+        finally
+        {
+            isBusy = false;
+        }
     }
 
-    private Task LoadPreviousQuestionsPageAsync() =>
-        ViewModel.LoadQuestionsAsync(ViewModel.QuestionsCurrentPage - 1);
+    private static string Preview(string statement) =>
+        statement.Length > 50 ? string.Concat(statement.AsSpan(0, 50), "...") : statement;
 
-    private Task LoadNextQuestionsPageAsync() =>
-        ViewModel.LoadQuestionsAsync(ViewModel.QuestionsCurrentPage + 1);
+    private sealed record QuestionListItem(
+        Guid Id,
+        string Statement,
+        QuestionType Type,
+        string SubjectName,
+        string GradeName);
 
-    private Task LoadPreviousOptionsPageAsync() =>
-        ViewModel.LoadOptionsAsync(ViewModel.OptionsCurrentPage - 1);
+    private sealed class OptionForm
+    {
+        [Required(ErrorMessage = "Option text is required.")]
+        [StringLength(QuestionShape.MaxOptionTextLength, ErrorMessage = "Option text is too long.")]
+        public string Text { get; set; } = string.Empty;
 
-    private Task LoadNextOptionsPageAsync() =>
-        ViewModel.LoadOptionsAsync(ViewModel.OptionsCurrentPage + 1);
+        public bool IsCorrect { get; set; }
+
+        [Range(1, QuestionShape.MaxOptions, ErrorMessage = "Option order must be between 1 and 100.")]
+        public int Order { get; set; } = 1;
+    }
 }

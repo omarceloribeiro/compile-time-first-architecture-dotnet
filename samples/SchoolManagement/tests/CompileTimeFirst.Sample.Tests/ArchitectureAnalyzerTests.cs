@@ -9,7 +9,7 @@ namespace CompileTimeFirst.Sample.Tests;
 public sealed class ArchitectureAnalyzerTests
 {
     [Fact]
-    public async Task Primary_constructor_write_context_is_reported()
+    public async Task Primary_constructor_write_context_in_component_is_reported()
     {
         const string source = """
             namespace CompileTimeFirst.Sample.Data
@@ -22,9 +22,15 @@ public sealed class ArchitectureAnalyzerTests
                 public interface IDbContextFactory<T>;
             }
 
-            public sealed class BadViewModel(
+            namespace Microsoft.AspNetCore.Components
+            {
+                public abstract class ComponentBase;
+            }
+
+            public sealed class SubjectsPage(
                 Microsoft.EntityFrameworkCore.IDbContextFactory<
-                    CompileTimeFirst.Sample.Data.SchoolDbContext> factory);
+                    CompileTimeFirst.Sample.Data.SchoolDbContext> factory)
+                : Microsoft.AspNetCore.Components.ComponentBase;
             """;
 
         var diagnostics = await GetDiagnosticsAsync(source);
@@ -34,13 +40,21 @@ public sealed class ArchitectureAnalyzerTests
     }
 
     [Fact]
-    public async Task IQueryable_field_in_view_model_is_reported()
+    public async Task IQueryable_field_in_component_is_reported()
     {
         const string source = """
             using System.Linq;
-            public sealed class ProductsViewModel
+            using Microsoft.AspNetCore.Components;
+
+            namespace Microsoft.AspNetCore.Components
+            {
+                public abstract class ComponentBase;
+            }
+
+            public sealed class ProductsPage : ComponentBase
             {
                 private IQueryable<int>? _query;
+                public bool HasQuery => _query is not null;
             }
             """;
 
@@ -51,19 +65,48 @@ public sealed class ArchitectureAnalyzerTests
     }
 
     [Fact]
-    public async Task IOrderedQueryable_field_in_view_model_is_reported()
+    public async Task IOrderedQueryable_field_in_component_is_reported()
     {
         const string source = """
             using System.Linq;
-            public sealed class ProductsViewModel
+            using Microsoft.AspNetCore.Components;
+
+            namespace Microsoft.AspNetCore.Components
+            {
+                public abstract class ComponentBase;
+            }
+
+            public sealed class ProductsPage : ComponentBase
             {
                 private IOrderedQueryable<int>? _query;
+                public bool HasQuery => _query is not null;
             }
             """;
 
         var diagnostics = await GetDiagnosticsAsync(source);
 
         Assert.Contains(diagnostics, diagnostic =>
+            diagnostic.Id == ReadOnlyArchitectureAnalyzer.NoEscapedReadStateId);
+    }
+
+    [Fact]
+    public async Task Class_named_like_a_view_model_is_not_in_scope()
+    {
+        // Scope is the ComponentBase symbol, never a class-name suffix. This locks the removal of
+        // the ViewModel layer: a plain class is not a component just because of how it is named.
+        const string source = """
+            using System.Linq;
+
+            public sealed class ProductsViewModel
+            {
+                private IQueryable<int>? _query;
+                public bool HasQuery => _query is not null;
+            }
+            """;
+
+        var diagnostics = await GetDiagnosticsAsync(source);
+
+        Assert.DoesNotContain(diagnostics, diagnostic =>
             diagnostic.Id == ReadOnlyArchitectureAnalyzer.NoEscapedReadStateId);
     }
 
@@ -151,11 +194,67 @@ public sealed class ArchitectureAnalyzerTests
             diagnostic.GetMessage().Contains("SingleOrDefaultAsync", StringComparison.Ordinal));
     }
 
-    private static async Task<ImmutableArray<Diagnostic>> GetDiagnosticsAsync(string source)
+    [Fact]
+    public async Task Razor_generated_component_is_analyzed()
+    {
+        var diagnostics = await GetDiagnosticsAsync(
+            RazorComponentSource,
+            path: "Components/Pages/Subjects/Subjects.razor.g.cs");
+
+        Assert.Contains(diagnostics, diagnostic =>
+            diagnostic.Id == ReadOnlyArchitectureAnalyzer.NoEscapedReadStateId);
+    }
+
+    [Fact]
+    public async Task Component_marked_as_generated_code_is_analyzed()
+    {
+        const string source = """
+            using System.Linq;
+            using Microsoft.AspNetCore.Components;
+
+            namespace Microsoft.AspNetCore.Components
+            {
+                public abstract class ComponentBase;
+            }
+
+            [System.CodeDom.Compiler.GeneratedCode("Razor", "10.0")]
+            public sealed class SubjectsPage : ComponentBase
+            {
+                private IQueryable<int>? _query;
+                public bool HasQuery => _query is not null;
+            }
+            """;
+
+        var diagnostics = await GetDiagnosticsAsync(source);
+
+        Assert.Contains(diagnostics, diagnostic =>
+            diagnostic.Id == ReadOnlyArchitectureAnalyzer.NoEscapedReadStateId);
+    }
+
+    private const string RazorComponentSource = """
+        using System.Linq;
+        using Microsoft.AspNetCore.Components;
+
+        namespace Microsoft.AspNetCore.Components
+        {
+            public abstract class ComponentBase;
+        }
+
+        public sealed class Subjects : ComponentBase
+        {
+            private IQueryable<int>? _query;
+            public bool HasQuery => _query is not null;
+        }
+        """;
+
+    private static async Task<ImmutableArray<Diagnostic>> GetDiagnosticsAsync(
+        string source,
+        string? path = null)
     {
         var syntaxTree = CSharpSyntaxTree.ParseText(
             source,
-            new CSharpParseOptions(LanguageVersion.Preview));
+            new CSharpParseOptions(LanguageVersion.Preview),
+            path: path ?? string.Empty);
         var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
             .Split(Path.PathSeparator)
             .Select(path => MetadataReference.CreateFromFile(path));

@@ -30,6 +30,8 @@ Do not claim success without running the available build and tests.
 - No hidden persistence.
 - One DbContext per operation.
 - Writes are controlled; reads are flexible.
+- State lives in the component; there is no ViewModel layer.
+- Page before materialization.
 
 ## Use cases
 
@@ -53,7 +55,7 @@ Do not create `Command`, `Handler`, `Validator`, `Mapper` and `Repository` files
 
 ## DbContext
 
-Never inject a write `DbContext` directly into Blazor components, ViewModels or endpoints.
+Never inject a write `DbContext` directly into Blazor pages, components or endpoints.
 
 Write use cases inject:
 
@@ -81,7 +83,7 @@ Server-only feature code; do not replace them with an EF-specific DbContext fact
 same feature compatible with operation-scoped EF and remote/OData read providers.
 
 Every incidental read terminates through `IReadQueryExecutor`. Do not call EF Core, OData or another
-provider's terminal extensions from a ViewModel or component.
+provider's terminal extensions from a page or component.
 
 Use the terminal dictated by the control in the feature specification:
 
@@ -92,7 +94,7 @@ Use the terminal dictated by the control in the feature specification:
 
 When an incidental read explicitly needs uniqueness, count or existence, use
 `IReadQueryExecutor.SingleOrDefaultAsync`, `CountAsync` or `AnyAsync`. Never call the corresponding
-EF Core terminal extensions directly from a ViewModel or component.
+EF Core terminal extensions directly from a page or component.
 
 The specification chooses the control. Do not replace a dropdown with an autocomplete, invent row
 thresholds or add adaptive behavior unless the specification requires it.
@@ -101,7 +103,7 @@ Every query passed to `ToPageAsync` must define deterministic ordering first. Wh
 key is not unique, add a stable unique tie-breaker such as `ThenBy(x => x.Id)`.
 
 Keep `IQueryable<T>` and the read scope in local variables. Compose and materialize the query before
-the operation returns. Never store `IQueryable<T>`, `IReadDb`, a read scope or a DbContext as UI state,
+the operation returns. Never store `IQueryable<T>`, `IReadDb`, a read scope or a DbContext as component state,
 and never bind a live query provider directly to a visual component. Execute count and page queries
 sequentially when they share one DbContext.
 
@@ -116,17 +118,99 @@ Use a read use case for:
 - progress summaries;
 - reusable or auditable business views.
 
-## ViewModels
+## UI components
 
-ViewModels may:
+The component is the screen boundary. There is no ViewModel layer. Do not create a class named
+`XViewModel`, and do not reintroduce the same layer under another name such as `XPageState`,
+`XScreenModel` or `XPresenter`.
 
-- query the read store;
-- compose data for the screen;
-- hold UI state;
-- map UI models to use-case requests;
-- invoke use cases.
+A page or component may:
 
-ViewModels must not write through the read store or a write DbContext.
+- query the read store through `IReadDbFactory` and `IReadQueryExecutor`;
+- hold screen state: filters, selection, paging position, loading flags, form models;
+- map screen state to a use-case request;
+- invoke use cases;
+- translate expected application failures into user-visible messages.
+
+A page or component must not:
+
+- write through the read store or a write `DbContext`;
+- hold `IQueryable<T>`, a read scope or a `DbContext` in a field or property;
+- call an EF Core, OData or other provider terminal extension directly;
+- own a rule that a second actor path also needs - that rule belongs in a use case.
+
+When a screen stops fitting in one reader's head, extract a use case or a child component. Do not
+extract a state class.
+
+A support type used by a single screen - a row record, a select option, a form model - is declared
+privately inside that screen. Promote it to the read model only when a second screen needs it.
+
+### Code-behind placement
+
+By default, **all code-behind for a page or component lives in the `@code` block of the same
+`.razor` file**. Do not create a `.razor.cs` partial class.
+
+Create a `.razor.cs` only when the feature specification asks for it explicitly, naming the file and
+the reason. Absence of instruction means: single file.
+
+This default is deliberate and reversible. It optimizes for one file per screen, so a human or an
+agent loads exactly one file to understand a screen and a screen change is a single diff. It costs
+C# editor tooling quality inside large `@code` blocks, and that trade-off is not considered settled.
+If the cost becomes dominant, change it through a new ADR that supersedes ADR 0008 - not file by
+file, and not by agent judgement.
+
+## Multi-tenancy
+
+Tenant isolation is a property of the model and the query filter. It is never a property of
+remembering to filter.
+
+- A tenant-owned entity carries `TenantId` and has a `(TenantId, Id)` alternate key.
+- Every foreign key between tenant-owned entities is composite and includes `TenantId`, so a
+  cross-tenant reference is not merely forbidden - it is unrepresentable in the database.
+- Both contexts apply a named EF Core global query filter on `TenantId`, taken from the tenant the
+  factory stamped onto the context for this operation.
+- **Do not write a `TenantId` comparison in a page, component, endpoint or use-case query.** A
+  hand-written tenant filter is a defect even when it is correct, because it is one more place that
+  can be omitted with no compile error, no analyzer diagnostic and no failing test.
+- An unresolved tenant reads nothing. Do not "fix" that by making the filter pass when the tenant is
+  null - that turns a missing tenant into a cross-tenant read.
+- `IgnoreQueryFilters([DomainModelConfiguration.TenantFilter])` is allowed only in a composition
+  root, a seeder or a migration. Never in a component or a feature use case.
+- A write use case never accepts `TenantId` in its request. The tenant comes from `ICurrentUser`;
+  accepting it from the caller makes the caller the authority on isolation.
+- The tenant accessor never throws when no tenant is resolved. Seeding, the dependency-injection
+  gate and tests all run without one.
+
+## Validation and errors
+
+A request declares its own constraints with DataAnnotations. `UseCaseBase` validates the request
+before `ExecuteCoreAsync` runs, so the contract and the validation are one artifact. Do not re-check
+in the use case what the annotations already state; keep cross-field and asynchronous rules in
+`ExecuteCoreAsync`.
+
+Failures are typed application exceptions: a validation exception carrying the rejected rules, and a
+not-found exception. A page catches them by type with a filtered `catch when` and renders the
+message.
+
+An infrastructure exception never becomes text on a screen. It reaches the layout error boundary and
+is rendered generically. If a condition deserves a specific message to the user, it deserves a typed
+application exception.
+
+## Time
+
+Inject `TimeProvider` and read the current instant from it. `DateTime.Now`, `DateTime.UtcNow`,
+`DateTimeOffset.Now` and `DateTimeOffset.UtcNow` are forbidden in domain, application and UI code.
+Tests use `FakeTimeProvider`.
+
+## Domain
+
+An entity has a private parameterless constructor for materialization, private property setters and
+public methods named after the behaviour they perform. A use case calls a behaviour method; a use
+case that assigns properties one by one has moved a domain rule into the application layer.
+
+A rule that both constructs and rejects - defaults an editor offers and constraints a write
+enforces - lives once, in the application layer. The screen projects it. Keeping only the rejecting
+half there would strand the constructing half in a disposable screen.
 
 ## Data modeling
 
@@ -142,7 +226,28 @@ Do not silently introduce or change:
 
 Read related data specs first. When a structural decision is missing, document the options and request a decision before creating migrations.
 
+## Experimental render modes
+
+Interactive Server is the default and the supported path.
+
+Do not create, extend or wire any file, class, endpoint, controller, EDM registration, client
+provider, project reference or render-mode attribute for Interactive Auto, WebAssembly or OData
+unless the feature specification explicitly requests Interactive Auto and names what it needs.
+Absence of instruction means Interactive Server only.
+
+The existing Auto/OData code in the sample is a reference to read, not a template to replicate. It
+is kept in the same solution deliberately: Interactive Auto exercises both Server and WebAssembly
+from one component, so isolating it would remove that coverage. Keeping it costs nothing as long as
+nothing new is generated for it by default.
+
+Known gaps in that path: authentication, OData limits, trimming and AOT, and tenant propagation
+across the OData boundary. Do not present it as production-ready, and do not rely on it in a
+feature that a specification did not scope for it.
+
 ## Portable LINQ
+
+The portable subset applies only to queries a specification has scoped for Interactive Auto. In
+Interactive Server code, use the full provider surface the specification allows.
 
 Queries shared by Interactive Server and WASM/OData must use the portable subset:
 
@@ -166,8 +271,9 @@ Prefer explicit registration. Do not introduce assembly scanning merely to avoid
 
 Every executable composition root must enable `ValidateOnBuild` and `ValidateScopes`, expose the
 repository's `--validate-di` mode, and opt in to `ValidateDependencyInjectionOnBuild`. Validate all
-implementations marked by `IUseCase` or the composition root's `IViewModel`, plus Blazor constructor,
-`@inject` and keyed-service dependencies. Do not use `SkipDependencyInjectionValidation` when
+implementations marked by `IUseCase`, plus Blazor constructor, `@inject` and keyed-service
+dependencies. There is no marker interface for UI services: with screen logic inside components,
+`@inject` compiles to an `[Inject]` property and the gate already resolves it. Do not use `SkipDependencyInjectionValidation` when
 validating work. A build is not successful when the DI gate was bypassed or failed.
 
 ## Compile-time and AOT
@@ -224,8 +330,23 @@ provisioning, tenant linkage, access activation/deactivation or eligibility rema
 cases when they carry product semantics. Granting or revoking a product role is a product decision
 even though its implementation uses public Identity APIs.
 
+## Documentation style
+
+The rules in this repository were validated by real production use. Describe that origin in neutral
+terms only - "field use", "an application in production", "one real deployment". **Never name a
+product, client, company, internal system or repository**, in code, documentation, ADRs, tests or
+commit messages.
+
+A learning is written as a rule plus the anti-pattern it prevents, never as a story about a specific
+project. This is not enforced by CI on purpose: a denylist would have to contain the names it
+forbids, so it would introduce the very reference it exists to prevent. It is a review rule.
+
 ## Forbidden by default
 
+- a ViewModel class, or the same layer renamed;
+- a `.razor.cs` partial that no specification asked for;
+- unpaged terminals behind a grid, data table, result list, autocomplete or history;
+- string matching in analyzers where a Roslyn symbol is available;
 - generic repository over EF Core;
 - private wrappers that only rename a suitable public API;
 - direct persistence from UI;

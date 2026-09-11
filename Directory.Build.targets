@@ -1,4 +1,12 @@
 <Project>
+  <!-- Composition roots that opt in to the dependency-injection build gate also compile the
+       shared validator. Linking it here keeps every project free of a relative path whose
+       correctness depends on how deeply the project is nested. -->
+  <ItemGroup Condition="'$(ValidateDependencyInjectionOnBuild)' == 'true'">
+    <Compile Include="$(RepoRoot)eng/DependencyInjectionGraphValidator.cs"
+             Link="Validation/DependencyInjectionGraphValidator.cs" />
+  </ItemGroup>
+
   <Target
     Name="RunDependencyInjectionValidation"
     AfterTargets="Build"

@@ -8,5 +8,9 @@
     <AnalysisLevel>latest</AnalysisLevel>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <Deterministic>true</Deterministic>
+
+    <!-- Absolute path to the repository root, so shared engineering sources are linked by a
+         stable path instead of a relative walk that depends on project nesting depth. -->
+    <RepoRoot>$(MSBuildThisFileDirectory)</RepoRoot>
   </PropertyGroup>
 </Project>

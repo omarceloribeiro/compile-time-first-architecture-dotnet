@@ -6,8 +6,19 @@ namespace CompileTimeFirst.Sample.Data;
 
 public sealed class ReadOnlySchoolDbContext(
     DbContextOptions<ReadOnlySchoolDbContext> options)
-    : DbContext(options), IReadSchoolDbScope
+    : DbContext(options), IReadSchoolDbScope, ITenantScope
 {
+    /// <summary>Assigned by the factory that creates this context, once per operation.</summary>
+    public Guid? TenantId { get; set; }
+
+    public IQueryable<TenantReadItem> Tenants =>
+        Set<Tenant>().Select(x => new TenantReadItem
+        {
+            Id = x.Id,
+            Name = x.Name,
+            IsActive = x.IsActive
+        });
+
     public IQueryable<SubjectReadItem> Subjects =>
         Set<Subject>().Select(x => new SubjectReadItem
         {
@@ -54,12 +65,7 @@ public sealed class ReadOnlySchoolDbContext(
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        ArgumentNullException.ThrowIfNull(modelBuilder);
-
-        modelBuilder.Entity<Subject>().HasKey(x => x.Id);
-        modelBuilder.Entity<Grade>().HasKey(x => x.Id);
-        modelBuilder.Entity<Question>().HasKey(x => x.Id);
-        modelBuilder.Entity<QuestionOption>().HasKey(x => x.Id);
+        DomainModelConfiguration.Configure(modelBuilder, this);
     }
 
     public override int SaveChanges() => throw ReadOnlyException();

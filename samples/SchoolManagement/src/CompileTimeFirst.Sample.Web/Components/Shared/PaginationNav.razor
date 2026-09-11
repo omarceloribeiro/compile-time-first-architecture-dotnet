@@ -1,0 +1,35 @@
+@* Paging control shared by every paged read. It receives materialized paging state only - never a
+   query, a read scope or a DbContext - and reports the requested page back to the caller. *@
+
+<nav class="d-flex justify-content-between align-items-center" aria-label="@Label">
+    <button type="button" class="btn btn-outline-secondary" disabled="@(!HasPreviousPage)"
+            @onclick="() => OnPageRequested.InvokeAsync(CurrentPage - 1)">
+        Previous
+    </button>
+    <span>Page @(CurrentPage + 1) of @TotalPages (@TotalCount items)</span>
+    <button type="button" class="btn btn-outline-secondary" disabled="@(!HasNextPage)"
+            @onclick="() => OnPageRequested.InvokeAsync(CurrentPage + 1)">
+        Next
+    </button>
+</nav>
+
+@code {
+    [Parameter, EditorRequired]
+    public int CurrentPage { get; set; }
+
+    [Parameter, EditorRequired]
+    public int TotalCount { get; set; }
+
+    [Parameter, EditorRequired]
+    public int PageSize { get; set; } = 10;
+
+    [Parameter, EditorRequired]
+    public EventCallback<int> OnPageRequested { get; set; }
+
+    [Parameter]
+    public string Label { get; set; } = "Pages";
+
+    private int TotalPages => Math.Max(1, (TotalCount + PageSize - 1) / PageSize);
+    private bool HasPreviousPage => CurrentPage > 0;
+    private bool HasNextPage => CurrentPage + 1 < TotalPages;
+}

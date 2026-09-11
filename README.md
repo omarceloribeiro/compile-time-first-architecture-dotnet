@@ -6,14 +6,14 @@ The central principle is simple:
 
 > If an inconsistency can be detected at compile time, it should not wait until runtime.
 
-This repository is a **v0.4 reference**, not a framework. It combines established .NET mechanisms into a predictable development model for humans and coding agents.
+This repository is a **v0.5 reference**, not a framework. It combines established .NET mechanisms into a predictable development model for humans and coding agents.
 
 ## Core model
 
 ### Writes
 
 ```text
-View / ViewModel / Endpoint
+Component / Page / Endpoint
         ↓
 Strongly typed Request
         ↓
@@ -27,7 +27,7 @@ Database
 ### Incidental reads
 
 ```text
-ViewModel or endpoint
+Component or endpoint
         ↓
 IReadDbFactory
         ↓
@@ -41,7 +41,7 @@ EF Core locally or OData remotely
 ### Business reads
 
 ```text
-ViewModel or endpoint
+Component or endpoint
         ↓
 Read Use Case
         ↓
@@ -73,8 +73,10 @@ AI coding agents become substantially more reliable when the repository offers:
 6. **Read Directly When Incidental** — screen-specific reads may use the read store directly.
 7. **Read Use Cases for Business Views** — dashboards, indicators, reports and exports are explicit use cases.
 8. **Provider-Independent Reads** — the same portable LINQ may target EF Core on the server and OData from WebAssembly.
-9. **AI Predictability** — minimize hidden conventions, reflection and one-use indirection.
-10. **Page Before Materialization** — grids, data tables, result lists, autocompletes and histories terminate through `ToPageAsync`.
+9. **Tenant Isolation Is Structural** — the model and the query filter enforce it, never a predicate someone has to remember.
+10. **State Lives in the Component** — screens own their state; there is no ViewModel layer.
+11. **AI Predictability** — minimize hidden conventions, reflection and one-use indirection.
+12. **Page Before Materialization** — grids, data tables, result lists, autocompletes and histories terminate through `ToPageAsync`.
 
 ## Well-Known First
 
@@ -99,8 +101,11 @@ and [ADR 0006](docs/adr/0006-well-known-first.md).
 ```text
 AGENTS.md
 Architecture.md
+CHANGELOG.md
 docs/
-  HISTORY-AND-ANALYSIS.pt-BR.md
+  WELL-KNOWN-FIRST.md
+  ANALYZER-RULES.md
+  DEPENDENCY-INJECTION-VALIDATION.md
   SPEC-TEMPLATE.md
   DATA-SPEC-TEMPLATE.md
   adr/
@@ -123,18 +128,41 @@ The sample demonstrates:
 - `IDbContextFactory<TContext>` for one context per operation;
 - a read-only EF Core context;
 - an `IReadSchoolDb` surface based on `IQueryable<T>`;
-- a direct ViewModel read;
+- a direct component read with screen state owned by the component;
+- one shared EF Core model configuration for the write and read contexts;
+- encapsulated domain entities with behaviour methods and no public setters;
+- tenant isolation by composite keys and a named global query filter, with no hand-written tenant predicate anywhere;
 - paged incidental reads through the same executor contract in EF Core and browser OData;
 - a business read use case for a dashboard;
 - an export use case whose formats share one typed report model.
 
-The sample targets `.NET 10` and uses EF Core InMemory only for demonstration.
+The sample targets `.NET 10` and uses SQLite in-memory for demonstration. A relational provider is
+used deliberately: the composite foreign keys that make a cross-tenant reference impossible are only
+enforced by a database that enforces foreign keys.
 
 ```bash
 dotnet restore samples/SchoolManagement/CompileTimeFirst.Sample.sln
 dotnet build samples/SchoolManagement/CompileTimeFirst.Sample.sln -c Release
 dotnet run --project samples/SchoolManagement/src/CompileTimeFirst.Sample.Console
 ```
+
+## Experimental: Interactive Auto, WebAssembly and OData
+
+**Interactive Server is the supported path.** The Interactive Auto, WebAssembly and browser OData
+code in the sample is experimental and is not a production-ready path.
+
+It stays in the same solution on purpose: Interactive Auto exercises both Server and WebAssembly
+from a single component, so a separate sample would duplicate hosts and lose that coverage. The
+cost of keeping it is controlled by a rule rather than by isolation — nothing new is generated for
+this path unless a feature specification explicitly asks for Interactive Auto. See
+[`AGENTS.md`](AGENTS.md), section "Experimental render modes".
+
+Validate before enabling it in production:
+
+- authentication and authorization across the OData boundary;
+- OData query limits and exposure of the read surface;
+- trimming and AOT compatibility of the browser provider;
+- tenant propagation, which crosses an HTTP boundary instead of a Blazor circuit.
 
 ## What this architecture intentionally avoids
 
@@ -146,13 +174,21 @@ dotnet run --project samples/SchoolManagement/src/CompileTimeFirst.Sample.Consol
 - reflection-driven business rules;
 - wrappers that only rename suitable public APIs;
 - screen-specific query classes used only once;
-- direct writes from UI, endpoints or ViewModels.
+- direct writes from UI, components or endpoints;
+- ViewModel classes, or the same layer renamed.
 
 It does **not** reject DDD, CQRS, repositories or messaging categorically. It applies them only when their benefits exceed their cost.
 
 ## Status
 
-`v0.4` — adds Well-Known First, Public Semantic Surface and Context Debt to the v0.3 query-execution, paging and build-validation baseline. Validate provider-specific LINQ, installed API versions and production security constraints in each application.
+`v0.5` — removes the ViewModel layer and moves screen state into the component; makes the `.razor`
+file the default home for code-behind; makes Interactive Auto, WebAssembly and OData an experimental
+path that only a specification may extend; makes the architecture analyzers scope by Roslyn symbol
+and analyze Razor-generated code, which was previously unchecked; shares one EF Core model
+configuration between the write and read contexts; encapsulates domain entities.
+
+Validate provider-specific LINQ, installed API versions and production security constraints in each
+application.
 
 ## License
 

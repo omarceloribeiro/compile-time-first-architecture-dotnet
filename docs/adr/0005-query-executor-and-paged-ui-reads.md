@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted for v0.3.
+Accepted for v0.3. **Amended by ADR 0009** - the WebAssembly/OData provider is experimental and
+specification-gated. `IReadQueryExecutor` remains the standard terminal contract, justified by the
+terminal boundary itself rather than by a promise of render-mode portability.
 
 ## Context
 

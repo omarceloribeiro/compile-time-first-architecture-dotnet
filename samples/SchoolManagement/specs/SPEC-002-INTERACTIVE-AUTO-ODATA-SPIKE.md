@@ -1,12 +1,15 @@
 # SPEC-002 — Interactive Auto OData spike
 
+> **Status: experimental spike.** See ADR 0009. Interactive Server is the supported path;
+> nothing is generated for this path unless a specification explicitly requests Interactive Auto.
+
 ## Actor
 
 Developer evaluating provider-independent reads.
 
 ## Objective
 
-Prove that one Blazor page and ViewModel can execute the same portable LINQ query through EF Core during Interactive Server execution and through Microsoft.OData.Client after Interactive Auto switches to WebAssembly.
+Prove that one Blazor component can execute the same portable LINQ query through EF Core during Interactive Server execution and through Microsoft.OData.Client after Interactive Auto switches to WebAssembly.
 
 ## Flow
 
@@ -27,7 +30,7 @@ Prove that one Blazor page and ViewModel can execute the same portable LINQ quer
 
 ## Acceptance criteria
 
-- [x] The same component and ViewModel run in Server and WebAssembly.
+- [x] The same component runs in Server and WebAssembly.
 - [x] Microsoft.OData.Client translates the browser query for `/odata/Subjects`.
 - [x] Browser HttpClient executes and materializes the request without synchronous waits.
 - [x] Filtering and ordering are visible in the emitted OData request.

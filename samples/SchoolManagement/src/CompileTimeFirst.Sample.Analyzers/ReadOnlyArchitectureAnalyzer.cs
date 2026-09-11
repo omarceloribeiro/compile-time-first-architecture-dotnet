@@ -9,7 +9,7 @@ using System.Linq;
 namespace CompileTimeFirst.Sample.Analyzers;
 
 /// <summary>
-/// Analyzer que garante que classes ViewModel e componentes Blazor:
+/// Analyzer que garante que componentes Blazor (páginas e componentes):
 /// 1. NÃO injetem SchoolDbContext diretamente (apenas IReadSchoolDb/IReadSchoolDbFactory)
 /// 2. NÃO usem ToListAsync() do EF Core diretamente
 /// 3. Usem IReadQueryExecutor para todos os terminais assíncronos de leitura
@@ -28,16 +28,16 @@ public class ReadOnlyArchitectureAnalyzer : DiagnosticAnalyzer
     private const string ReadOnlyDbContextMetadataName = "CompileTimeFirst.Sample.Data.ReadOnlySchoolDbContext";
     private const string WriteDbContextMetadataName = "CompileTimeFirst.Sample.Data.SchoolDbContext";
 
-    // Regra 1: Não injetar DbContext de escrita em ViewModels ou componentes Blazor
+    // Regra 1: Não injetar DbContext de escrita em componentes Blazor
     public const string NoWriteDbContextInUIId = "CTFA001";
     private static readonly DiagnosticDescriptor NoWriteDbContextInUIRule = new DiagnosticDescriptor(
         id: NoWriteDbContextInUIId,
-        title: "ViewModel ou componente Blazor não pode injetar DbContext de escrita",
+        title: "Componente Blazor não pode injetar DbContext de escrita",
         messageFormat: "'{0}' não pode injetar 'SchoolDbContext' ou 'IDbContextFactory<SchoolDbContext>'. Use 'IReadSchoolDbFactory' para leitura.",
         category: "Architecture",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        description: "ViewModels e componentes Blazor devem usar apenas IReadSchoolDb para queries, nunca o DbContext de escrita.");
+        description: "Componentes Blazor devem usar apenas IReadSchoolDb para queries, nunca o DbContext de escrita.");
 
     // Regra 2: Não usar ToListAsync() do EF Core diretamente
     public const string NoDirectEfCoreToListAsyncId = "CTFA002";
@@ -48,7 +48,7 @@ public class ReadOnlyArchitectureAnalyzer : DiagnosticAnalyzer
         category: "Architecture",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        description: "ViewModels e componentes Blazor devem usar IReadQueryExecutor.ToListAsync() em vez de chamar EF Core diretamente.");
+        description: "Componentes Blazor devem usar IReadQueryExecutor.ToListAsync() em vez de chamar EF Core diretamente.");
 
     // Regra 3: Não usar FirstOrDefaultAsync() do EF Core diretamente
     public const string NoDirectEfCoreFirstOrDefaultAsyncId = "CTFA003";
@@ -59,7 +59,7 @@ public class ReadOnlyArchitectureAnalyzer : DiagnosticAnalyzer
         category: "Architecture",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        description: "ViewModels e componentes Blazor devem usar IReadQueryExecutor.FirstOrDefaultAsync() em vez de chamar EF Core diretamente.");
+        description: "Componentes Blazor devem usar IReadQueryExecutor.FirstOrDefaultAsync() em vez de chamar EF Core diretamente.");
 
     // Regra 4: Não armazenar provider/contexto de leitura em estado da UI
     public const string NoEscapedReadStateId = "CTFA004";
@@ -70,7 +70,7 @@ public class ReadOnlyArchitectureAnalyzer : DiagnosticAnalyzer
         category: "Architecture",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        description: "ViewModels e componentes não podem manter IQueryable, IReadSchoolDbScope ou read DbContext em campos/propriedades.");
+        description: "Componentes Blazor não podem manter IQueryable, IReadSchoolDbScope ou read DbContext em campos/propriedades.");
 
     // Regra 5: Não usar os demais terminais assíncronos de leitura do EF Core diretamente
     public const string NoDirectEfCoreReadTerminalAsyncId = "CTFA005";
@@ -81,7 +81,7 @@ public class ReadOnlyArchitectureAnalyzer : DiagnosticAnalyzer
         category: "Architecture",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        description: "ViewModels e componentes Blazor devem usar IReadQueryExecutor para SingleOrDefaultAsync(), CountAsync() e AnyAsync().");
+        description: "Componentes Blazor devem usar IReadQueryExecutor para SingleOrDefaultAsync(), CountAsync() e AnyAsync().");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(
@@ -98,7 +98,14 @@ public class ReadOnlyArchitectureAnalyzer : DiagnosticAnalyzer
             throw new ArgumentNullException(nameof(context));
         }
 
-        context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
+        // Blazor components only exist as Razor-generated `*.razor.g.cs`, which Roslyn classifies
+        // as generated code. Skipping generated code would leave every rule unenforced inside
+        // `.razor` files - which is exactly where component state and reads now live.
+        //
+        // Both flags are required. `Analyze` alone runs the rules over generated code but still
+        // suppresses the diagnostics they report there; `ReportDiagnostics` is what surfaces them.
+        context.ConfigureGeneratedCodeAnalysis(
+            GeneratedCodeAnalysisFlags.Analyze | GeneratedCodeAnalysisFlags.ReportDiagnostics);
         context.EnableConcurrentExecution();
 
         // Analisa construtores para detectar injeção de DbContext de escrita
@@ -117,10 +124,7 @@ public class ReadOnlyArchitectureAnalyzer : DiagnosticAnalyzer
     {
         var containingClass = (ClassDeclarationSyntax)context.Node;
         if (containingClass.ParameterList is null ||
-            !IsViewModelOrBlazorComponent(
-                containingClass.Identifier.Text,
-                context.SemanticModel,
-                containingClass))
+            !IsBlazorComponent(context.SemanticModel, containingClass))
         {
             return;
         }
@@ -143,8 +147,7 @@ public class ReadOnlyArchitectureAnalyzer : DiagnosticAnalyzer
 
         var className = containingClass.Identifier.Text;
 
-        // Verifica se é ViewModel ou componente Blazor
-        if (!IsViewModelOrBlazorComponent(className, context.SemanticModel, containingClass))
+        if (!IsBlazorComponent(context.SemanticModel, containingClass))
         {
             return;
         }
@@ -199,7 +202,7 @@ public class ReadOnlyArchitectureAnalyzer : DiagnosticAnalyzer
 
         var propertyType = context.SemanticModel.GetTypeInfo(property.Type).Type;
         if (propertyType != null &&
-            IsViewModelOrBlazorComponent(className, context.SemanticModel, containingClass) &&
+            IsBlazorComponent(context.SemanticModel, containingClass) &&
             IsForbiddenReadStateType(propertyType, context.Compilation))
         {
             context.ReportDiagnostic(Diagnostic.Create(
@@ -235,10 +238,7 @@ public class ReadOnlyArchitectureAnalyzer : DiagnosticAnalyzer
         var containingClass = field.Parent as ClassDeclarationSyntax;
 
         if (containingClass == null ||
-            !IsViewModelOrBlazorComponent(
-                containingClass.Identifier.Text,
-                context.SemanticModel,
-                containingClass))
+            !IsBlazorComponent(context.SemanticModel, containingClass))
         {
             return;
         }
@@ -371,10 +371,7 @@ public class ReadOnlyArchitectureAnalyzer : DiagnosticAnalyzer
 
         var className = containingClass.Identifier.Text;
 
-        if (!IsViewModelOrBlazorComponent(
-                className,
-                context.SemanticModel,
-                containingClass))
+        if (!IsBlazorComponent(context.SemanticModel, containingClass))
         {
             return;
         }
@@ -424,34 +421,30 @@ public class ReadOnlyArchitectureAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static bool IsViewModelOrBlazorComponent(
-        string className,
+    /// <summary>
+    /// A type is in scope when its base-type chain reaches ComponentBase.
+    ///
+    /// Scoping by symbol rather than by a class-name suffix is what keeps these rules working when
+    /// naming conventions change: the previous suffix gate stopped applying to any type that did
+    /// not end in a particular word, which silently narrowed enforcement.
+    /// </summary>
+    private static bool IsBlazorComponent(
         SemanticModel semanticModel,
-        ClassDeclarationSyntax classDecl)
+        ClassDeclarationSyntax classDeclaration)
     {
-        // ViewModels terminam com "ViewModel"
-        if (className.EndsWith("ViewModel", StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        // Componentes Blazor herdam de ComponentBase
-        var componentBase = semanticModel.Compilation.GetTypeByMetadataName(
-            ComponentBaseMetadataName);
-        var classSymbol = semanticModel.GetDeclaredSymbol(classDecl);
+        var componentBase = semanticModel.Compilation.GetTypeByMetadataName(ComponentBaseMetadataName);
+        var classSymbol = semanticModel.GetDeclaredSymbol(classDeclaration);
         if (classSymbol == null || componentBase is null)
         {
             return false;
         }
 
-        var baseType = classSymbol.BaseType;
-        while (baseType != null)
+        for (var baseType = classSymbol.BaseType; baseType != null; baseType = baseType.BaseType)
         {
             if (SymbolEqualityComparer.Default.Equals(baseType, componentBase))
             {
                 return true;
             }
-            baseType = baseType.BaseType;
         }
 
         return false;

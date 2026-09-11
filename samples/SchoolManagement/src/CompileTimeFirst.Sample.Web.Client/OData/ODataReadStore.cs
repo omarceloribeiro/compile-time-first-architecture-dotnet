@@ -29,6 +29,11 @@ public sealed class ODataReadSchoolDbScope : IReadSchoolDbScope
         };
     }
 
+    // Not exposed as an OData entity set: the experimental path is not extended without a
+    // specification asking for it, and the tenant of a remote caller is not chosen by the caller.
+    public IQueryable<TenantReadItem> Tenants =>
+        throw new NotSupportedException("Tenants are not exposed over the OData read provider.");
+
     public IQueryable<SubjectReadItem> Subjects => _context.CreateQuery<SubjectReadItem>("Subjects");
     public IQueryable<GradeReadItem> Grades => _context.CreateQuery<GradeReadItem>("Grades");
     public IQueryable<QuestionReadItem> Questions => _context.CreateQuery<QuestionReadItem>("Questions");

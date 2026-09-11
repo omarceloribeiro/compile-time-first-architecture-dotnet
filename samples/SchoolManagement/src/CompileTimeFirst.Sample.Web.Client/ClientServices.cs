@@ -25,7 +25,6 @@ public static class ClientServices
     {
         var services = new ServiceCollection();
         services.AddODataReadClient(baseAddress);
-        //services.AddScoped<Pages.AutoSubjects.AutoSubjectsViewModel>();
 
         return services.BuildServiceProvider(new ServiceProviderOptions
         {

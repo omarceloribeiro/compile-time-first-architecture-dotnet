@@ -6,36 +6,44 @@ using CompileTimeFirst.Sample.Application.QuestionOptions;
 using CompileTimeFirst.Sample.Application.Questions;
 using CompileTimeFirst.Sample.Application.Subjects;
 using CompileTimeFirst.Sample.Data;
+using CompileTimeFirst.Sample.Domain;
 using CompileTimeFirst.Sample.ReadModel;
 using CompileTimeFirst.Validation;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CompileTimeFirst.Sample.ConsoleApp;
 
 public static class CompositionRoot
 {
-    private const string DatabaseName = "compile-time-first-school";
+    public static readonly Guid DemoTenantId = Guid.Parse("33333333-3333-3333-3333-333333333333");
 
     public static ServiceProvider Build()
     {
         var services = new ServiceCollection();
-        var databaseRoot = new InMemoryDatabaseRoot();
+
+        // Kept open for the process lifetime; closing it discards the in-memory database.
+        var connection = new SqliteConnection("Filename=:memory:");
+        connection.Open();
 
         var writeOptions = new DbContextOptionsBuilder<SchoolDbContext>()
-            .UseInMemoryDatabase(DatabaseName, databaseRoot)
+            .UseSqlite(connection)
             .Options;
         var readOptions = new DbContextOptionsBuilder<ReadOnlySchoolDbContext>()
-            .UseInMemoryDatabase(DatabaseName, databaseRoot)
+            .UseSqlite(connection)
             .Options;
 
-        services.AddSingleton<IDbContextFactory<SchoolDbContext>>(
-            new SimpleDbContextFactory<SchoolDbContext>(() => new SchoolDbContext(writeOptions)));
-        services.AddSingleton<IDbContextFactory<ReadOnlySchoolDbContext>>(
-            new SimpleDbContextFactory<ReadOnlySchoolDbContext>(() => new ReadOnlySchoolDbContext(readOptions)));
+        // A non-interactive host has no user to resolve a tenant from, so it declares one.
+        services.AddSingleton<ICurrentUser>(new FixedTenant(DemoTenantId));
 
-        services.AddSingleton<IReadSchoolDbFactory, ReadSchoolDbFactory>();
+        services.AddScoped<IDbContextFactory<SchoolDbContext>>(provider =>
+            new TenantSchoolDbContextFactory(writeOptions, provider.GetRequiredService<ICurrentUser>()));
+        services.AddScoped<IDbContextFactory<ReadOnlySchoolDbContext>>(provider =>
+            new TenantReadOnlySchoolDbContextFactory(readOptions, provider.GetRequiredService<ICurrentUser>()));
+
+        services.AddSingleton(TimeProvider.System);
+        services.AddScoped<IReadSchoolDbFactory, ReadSchoolDbFactory>();
         services.AddSingleton<IReadQueryExecutor, EfReadQueryExecutor>();
 
         services.AddScoped<ICreateSubjectUseCase, CreateSubjectUseCase>();
@@ -44,7 +52,6 @@ public static class CompositionRoot
         services.AddScoped<ICreateQuestionOptionUseCase, CreateQuestionOptionUseCase>();
         services.AddScoped<IGetSchoolDashboardUseCase, GetSchoolDashboardUseCase>();
         services.AddScoped<IExportQuestionsUseCase, ExportQuestionsUseCase>();
-        services.AddScoped<QuestionEditorViewModel>();
         services.AddScoped<SampleRunner>();
 
         return services.BuildServiceProvider(new ServiceProviderOptions
@@ -62,13 +69,14 @@ public static class CompositionRoot
                 Assemblies:
                 [
                     typeof(IUseCase).Assembly,
-                    typeof(QuestionEditorViewModel).Assembly
+                    typeof(SampleRunner).Assembly
                 ],
-                MarkerInterfaces:
-                [
-                    typeof(IUseCase),
-                    typeof(IViewModel)
-                ],
+                MarkerInterfaces: [typeof(IUseCase)],
                 ValidateBlazorComponents: false));
+    }
+
+    private sealed class FixedTenant(Guid tenantId) : ICurrentUser
+    {
+        public Guid? TenantId { get; } = tenantId;
     }
 }

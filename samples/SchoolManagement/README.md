@@ -1,7 +1,7 @@
 # School Management sample
 
-This sample validates typed write use cases, read-only EF projections, Blazor MVVM, automatic DI
-validation and provider-independent paged reads in Interactive Server and Interactive Auto/OData.
+This sample validates typed write use cases, read-only EF projections, component-owned screen
+state, automatic DI validation and paged incidental reads.
 
 ## Run
 
@@ -16,7 +16,25 @@ The Web app seeds one Subject and Grade and exposes:
 - `/subjects` and `/grades` — simple catalog writes with paged data tables;
 - `/questions` — atomic question and option creation;
 - `/question-options` — add options to existing questions;
-- `/auto-subjects` — the same paged ViewModel/query using EF in Interactive Server and OData in WASM;
-- `/odata/$metadata` — the read-only OData metadata document.
+- `/auto-subjects` — **experimental**, see below;
+- `/odata/$metadata` — **experimental**, the read-only OData metadata document.
+
+## Experimental surface
+
+Interactive Server is the supported path in this sample. These files belong to the experimental
+Interactive Auto / WebAssembly / OData path and exist as a reference to read, not as a template to
+copy:
+
+```text
+src/CompileTimeFirst.Sample.Web/OData/                          OData controllers, EDM model, read scope
+src/CompileTimeFirst.Sample.Web.Client/                         WebAssembly client and OData read provider
+src/CompileTimeFirst.Sample.Web.Client/Pages/AutoSubjects/      the only Interactive Auto page
+tests/CompileTimeFirst.Sample.Tests/ODataQueryTests.cs          portable-LINQ translation tests
+tests/CompileTimeFirst.Sample.Tests/ODataEndToEndTests.cs       OData endpoint tests
+```
+
+Do not add files, classes, endpoints or render-mode attributes to this path unless a feature
+specification explicitly asks for Interactive Auto. See "Experimental render modes" in
+`../../AGENTS.md`.
 
 See `specs/`, `../../Architecture.md` and `../../docs/DEPENDENCY-INJECTION-VALIDATION.md`.

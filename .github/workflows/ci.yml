@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore samples/SchoolManagement/CompileTimeFirst.Sample.sln
+
+      # The build is the architecture gate: TreatWarningsAsErrors, the CTFA analyzers, and the
+      # dependency-injection validation that runs after each composition root is built.
+      - name: Build
+        run: dotnet build samples/SchoolManagement/CompileTimeFirst.Sample.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test samples/SchoolManagement/CompileTimeFirst.Sample.sln -c Release --no-build
+
+  conventions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Documentation drifts in exactly two ways this repository has already experienced: a rule is
+      # removed from the code but survives in prose, and a structure listing names a file that does
+      # not exist. Both are cheap to check and were found by hand before.
+      - name: The ViewModel layer stays removed
+        run: |
+          matches=$(grep -ril 'viewmodel\|mvvm' --include='*.cs' --include='*.razor' --include='*.md' . \
+            | grep -v '^./CHANGELOG.md$' \
+            | grep -v '^./docs/adr/' \
+            | grep -v '^./docs/ANALYZER-RULES.md$' \
+            | grep -v '^./AGENTS.md$' \
+            | grep -v '^./Architecture.md$' \
+            | grep -v '^./README' \
+            | grep -v 'ArchitectureAnalyzerTests.cs$' || true)
+          if [ -n "$matches" ]; then
+            echo "Unexpected ViewModel references:"; echo "$matches"; exit 1
+          fi
+
+      # There is deliberately no automated check for product or company names. A denylist would
+      # have to contain the names it forbids, so the check would itself introduce the reference it
+      # exists to prevent. This stays a review rule, stated in AGENTS.md.
+
+      - name: Every documented path exists
+        run: |
+          python3 - <<'PY'
+          import io, os, re, glob, sys
+          broken = []
+          for md in glob.glob('**/*.md', recursive=True):
+              if '/obj/' in md or '/bin/' in md:
+                  continue
+              for m in re.finditer(r'\[[^\]]*\]\(([^)#]+?)\)', io.open(md, encoding='utf-8').read()):
+                  target = m.group(1)
+                  if target.startswith(('http://', 'https://', 'mailto:')):
+                      continue
+                  if not os.path.exists(os.path.normpath(os.path.join(os.path.dirname(md), target))):
+                      broken.append(f"{md} -> {target}")
+          if broken:
+              print("Broken documentation links:")
+              print("\n".join(broken))
+              sys.exit(1)
+          PY

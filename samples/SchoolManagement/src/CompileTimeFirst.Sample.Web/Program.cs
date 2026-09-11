@@ -11,15 +11,12 @@ using CompileTimeFirst.Sample.ReadModel;
 using CompileTimeFirst.Sample.Web.Client;
 using CompileTimeFirst.Sample.Web.Client.Pages.AutoSubjects;
 using CompileTimeFirst.Sample.Web.Components;
-using CompileTimeFirst.Sample.Web.Components.Pages.Grades;
-using CompileTimeFirst.Sample.Web.Components.Pages.QuestionOptions;
-using CompileTimeFirst.Sample.Web.Components.Pages.Questions;
-using CompileTimeFirst.Sample.Web.Components.Pages.Subjects;
+using CompileTimeFirst.Sample.Web.Services;
 using CompileTimeFirst.Sample.Web.OData;
 using CompileTimeFirst.Validation;
 using Microsoft.AspNetCore.OData;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -30,17 +27,25 @@ builder.Host.UseDefaultServiceProvider((_, options) =>
     options.ValidateScopes = true;
 });
 
-var databaseRoot = new InMemoryDatabaseRoot();
-const string databaseName = "compile-time-first-school-web";
+// SQLite in-memory, kept alive by one open connection for the process lifetime. A relational
+// provider is required here: the composite foreign keys that make a cross-tenant reference
+// impossible are only enforced by a database that enforces foreign keys at all.
+var connection = new SqliteConnection("Filename=:memory:");
+connection.Open();
 
-builder.Services.AddDbContextFactory<SchoolDbContext>(options =>
-    options.UseInMemoryDatabase(databaseName, databaseRoot));
+// Scoped factories, so the tenant accessor can be injected into the factory instead of into the
+// context. See TenantDbContextFactories.
+builder.Services.AddDbContextFactory<SchoolDbContext, TenantSchoolDbContextFactory>(
+    options => options.UseSqlite(connection), ServiceLifetime.Scoped);
 RemoveDirectContextRegistration<SchoolDbContext>(builder.Services);
 
-builder.Services.AddDbContextFactory<ReadOnlySchoolDbContext>(options =>
-    options.UseInMemoryDatabase(databaseName, databaseRoot));
+builder.Services.AddDbContextFactory<ReadOnlySchoolDbContext, TenantReadOnlySchoolDbContextFactory>(
+    options => options.UseSqlite(connection), ServiceLifetime.Scoped);
 RemoveDirectContextRegistration<ReadOnlySchoolDbContext>(builder.Services);
 
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<CurrentTenantSelection>();
+builder.Services.AddScoped<ICurrentUser>(provider => provider.GetRequiredService<CurrentTenantSelection>());
 builder.Services.AddScoped<IReadSchoolDbFactory, ReadSchoolDbFactory>();
 builder.Services.AddScoped<IReadProviderInfo>(provider =>
     (IReadProviderInfo)provider.GetRequiredService<IReadSchoolDbFactory>());
@@ -54,11 +59,6 @@ builder.Services.AddScoped<ICreateQuestionOptionUseCase, CreateQuestionOptionUse
 builder.Services.AddScoped<IGetSchoolDashboardUseCase, GetSchoolDashboardUseCase>();
 builder.Services.AddScoped<IExportQuestionsUseCase, ExportQuestionsUseCase>();
 
-builder.Services.AddScoped<SubjectsViewModel>();
-builder.Services.AddScoped<GradesViewModel>();
-builder.Services.AddScoped<QuestionsViewModel>();
-builder.Services.AddScoped<QuestionOptionsViewModel>();
-//builder.Services.AddScoped<AutoSubjectsViewModel>();
 
 builder.Services
     .AddControllers()
@@ -127,15 +127,10 @@ static void ValidateServerComposition(IServiceProvider provider)
             Assemblies:
             [
                 typeof(IUseCase).Assembly,
-                typeof(CompileTimeFirst.Sample.Web.Components.Pages.IViewModel).Assembly,
+                typeof(App).Assembly,
                 typeof(ClientServices).Assembly
             ],
-            MarkerInterfaces:
-            [
-                typeof(IUseCase),
-                typeof(CompileTimeFirst.Sample.Web.Components.Pages.IViewModel),
-                typeof(CompileTimeFirst.Sample.Web.Client.IViewModel)
-            ]));
+            MarkerInterfaces: [typeof(IUseCase)]));
 }
 
 static void ValidateClientComposition()
@@ -146,7 +141,7 @@ static void ValidateClientComposition()
         provider,
         new DependencyInjectionValidationOptions(
             Assemblies: [typeof(ClientServices).Assembly],
-            MarkerInterfaces: [typeof(CompileTimeFirst.Sample.Web.Client.IViewModel)]));
+            MarkerInterfaces: []));
 }
 
 static async Task SeedAsync(IServiceProvider services)
@@ -155,22 +150,29 @@ static async Task SeedAsync(IServiceProvider services)
     var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<SchoolDbContext>>();
     await using var db = await factory.CreateDbContextAsync();
 
-    if (await db.Subjects.AnyAsync())
+    await db.Database.EnsureCreatedAsync();
+
+    // Seeding runs outside any user context, so no tenant is resolved and the filter matches
+    // nothing. Lifting one named filter is the authorized escape hatch; the tenant of every row is
+    // then stated explicitly rather than inherited from ambient state.
+    if (await db.Tenants.IgnoreQueryFilters([DomainModelConfiguration.TenantFilter]).AnyAsync())
     {
         return;
     }
 
-    db.Subjects.Add(new Subject
-    {
-        Id = Guid.NewGuid(),
-        Name = "Computing"
-    });
-    db.Grades.Add(new Grade
-    {
-        Id = Guid.NewGuid(),
-        Name = "Grade 5",
-        Order = 5
-    });
+    var northTenantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    var southTenantId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+    db.Tenants.AddRange(
+        new Tenant(northTenantId, "North School"),
+        new Tenant(southTenantId, "South School"));
+
+    db.Subjects.AddRange(
+        new Subject(Guid.NewGuid(), northTenantId, "Computing"),
+        new Subject(Guid.NewGuid(), southTenantId, "Geography"));
+    db.Grades.AddRange(
+        new Grade(Guid.NewGuid(), northTenantId, "Grade 5", 5),
+        new Grade(Guid.NewGuid(), southTenantId, "Grade 9", 9));
 
     await db.SaveChangesAsync();
 }
