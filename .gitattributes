@@ -1,0 +1,40 @@
+# Line endings are normalized to LF in the repository and checked out per platform.
+# Without this, files authored on Windows and on Linux differ by their line endings alone, which
+# shows up as a whole-file diff and hides the change that actually mattered.
+* text=auto
+
+# Source and documentation are text regardless of what a heuristic decides.
+*.cs        text diff=csharp
+*.razor     text
+*.csproj    text
+*.props     text
+*.targets   text
+*.json      text
+*.md        text
+*.yml       text
+*.css       text
+*.js        text
+*.editorconfig text
+*.gitattributes text
+*.gitignore text
+
+# Visual Studio writes solution files with CRLF and rewrites them otherwise.
+*.sln       text eol=crlf
+
+# Shell scripts must keep LF or they fail to execute on Unix.
+*.sh        text eol=lf
+
+# Binary: never normalized, never diffed as text.
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.pdf       binary
+*.woff      binary
+*.woff2     binary
+*.ttf       binary
+*.eot       binary
+*.dll       binary
+*.exe       binary
+*.snk       binary
