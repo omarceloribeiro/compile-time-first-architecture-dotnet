@@ -27,6 +27,8 @@ Prove that one Blazor component can execute the same portable LINQ query through
 - `$expand` is not enabled.
 - The client composes LINQ; it does not assemble OData query strings.
 - The result list uses `ToPageAsync` with a page size of 10.
+- The same-origin Identity cookie authenticates OData; `tenant_id` is resolved only on the server.
+- Prerendered state is reused during hydration instead of immediately executing the same load again.
 
 ## Acceptance criteria
 
@@ -36,8 +38,10 @@ Prove that one Blazor component can execute the same portable LINQ query through
 - [x] Filtering and ordering are visible in the emitted OData request.
 - [x] Paging and total count are visible through `$skip`, `$top` and `$count`.
 - [x] The server and client executors pass the same contract tests for supported terminal operations.
+- [x] Anonymous OData is rejected and each seeded Identity account sees only its tenant.
+- [x] Unexpected failures are rendered generically by an interactive error boundary.
 - [x] Build, DI validation and tests pass.
 
 ## Outside the spike
 
-Authentication, tenant filters, generated clients, offline support, production AOT guarantees and general exposure of every read surface.
+Generated clients, offline support, production AOT guarantees and general exposure of every read surface.

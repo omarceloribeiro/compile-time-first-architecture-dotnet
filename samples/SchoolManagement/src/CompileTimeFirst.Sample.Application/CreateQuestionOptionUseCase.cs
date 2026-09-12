@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using CompileTimeFirst.Sample.Data;
 using CompileTimeFirst.Sample.Domain;
 using Microsoft.EntityFrameworkCore;
@@ -13,8 +14,11 @@ public interface ICreateQuestionOptionUseCase : IUseCase
 
 public sealed record CreateQuestionOptionRequest(
     Guid QuestionId,
+    [property: Required(ErrorMessage = "Option text is required.")]
+    [property: StringLength(1_000, ErrorMessage = "Option text must contain at most 1,000 characters.")]
     string Text,
     bool IsCorrect,
+    [property: Range(1, 100, ErrorMessage = "Option order must be between 1 and 100.")]
     int Order);
 
 public sealed record CreateQuestionOptionResult(Guid OptionId);
@@ -29,8 +33,6 @@ public sealed class CreateQuestionOptionUseCase(
         CreateQuestionOptionRequest request,
         CancellationToken cancellationToken)
     {
-        Validate(request);
-
         await using var db = await contextFactory.CreateDbContextAsync(cancellationToken);
 
         var question = await db.Questions
@@ -82,18 +84,5 @@ public sealed class CreateQuestionOptionUseCase(
         await db.SaveChangesAsync(cancellationToken);
 
         return new CreateQuestionOptionResult(option.Id);
-    }
-
-    private static void Validate(CreateQuestionOptionRequest request)
-    {
-        if (string.IsNullOrWhiteSpace(request.Text) || request.Text.Length > 1_000)
-        {
-            throw new UseCaseValidationException("Option text must contain between 1 and 1,000 characters.");
-        }
-
-        if (request.Order < 1 || request.Order > 100)
-        {
-            throw new UseCaseValidationException("Option order must be between 1 and 100.");
-        }
     }
 }

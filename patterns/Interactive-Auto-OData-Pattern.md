@@ -4,8 +4,9 @@
 > endpoints or render-mode attributes for this pattern unless a feature specification explicitly
 > requests Interactive Auto. See ADR 0009 and "Experimental render modes" in `AGENTS.md`.
 >
-> Known gaps: authentication across the OData boundary, OData query limits, trimming and AOT, and
-> tenant propagation, which crosses HTTP rather than a Blazor circuit.
+> Known gaps: generated-client metadata lifecycle, OData exposure beyond the sample's small read
+> surface, and trimming and AOT. The sample validates same-origin Identity authentication and tenant
+> propagation, but that does not make the path production-ready.
 
 
 ## Goal
@@ -47,9 +48,10 @@ Microsoft.OData.Client provider. Both execute the same portable `Where` and `Ord
 the browser `HttpClient` asynchronously downloads and materializes the JSON response. This avoids
 the synchronous response-enumeration path that is incompatible with the single-threaded browser runtime.
 
-The spike validates provider switching, typed LINQ translation, async execution, query-option limits
-and DI hydration. Authentication, tenant filtering, generated-client metadata lifecycle and AOT
-publishing remain explicitly outside the spike.
+The spike validates provider switching, typed LINQ translation, async execution, query-option
+limits, DI hydration, same-origin Identity authentication and tenant filtering across the HTTP
+boundary. Generated-client metadata lifecycle and AOT publishing remain explicitly outside the
+spike.
 
 Paged controls use `ToPageAsync`. The client sends `$count`, `$skip` and `$top`, while the server
 executor uses EF Core `CountAsync`, `Skip`, `Take` and `ToListAsync`. In either runtime, the query and

@@ -19,6 +19,16 @@ The Web app seeds one Subject and Grade and exposes:
 - `/auto-subjects` — **experimental**, see below;
 - `/odata/$metadata` — **experimental**, the read-only OData metadata document.
 
+All functional routes require the sample's ASP.NET Core Identity login:
+
+| Username | Password | Tenant |
+|---|---|---|
+| `account1` | `Sample123!` | North School |
+| `account2` | `Sample123!` | South School |
+
+These are development-only accounts in the ephemeral SQLite database. Logout followed by a new
+login is the only tenant switch; the browser never selects or submits a tenant identifier.
+
 ## Experimental surface
 
 Interactive Server is the supported path in this sample. These files belong to the experimental

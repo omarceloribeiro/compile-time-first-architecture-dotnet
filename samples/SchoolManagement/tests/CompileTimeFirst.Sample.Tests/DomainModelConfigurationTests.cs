@@ -1,4 +1,5 @@
 using CompileTimeFirst.Sample.Data;
+using CompileTimeFirst.Sample.Domain;
 using Microsoft.EntityFrameworkCore;
 
 namespace CompileTimeFirst.Sample.Tests;
@@ -20,6 +21,7 @@ public sealed class DomainModelConfigurationTests
     private static List<string> Describe(DbContext context) =>
         [.. context.Model
             .GetEntityTypes()
+            .Where(entityType => entityType.ClrType.Namespace == typeof(Tenant).Namespace)
             .SelectMany(entityType =>
                 new[] { $"{entityType.ClrType.Name}:table:{entityType.GetTableName()}" }
                     .Concat(entityType.GetProperties()

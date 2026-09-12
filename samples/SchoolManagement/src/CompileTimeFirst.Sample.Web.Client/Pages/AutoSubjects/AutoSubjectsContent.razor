@@ -1,0 +1,95 @@
+@using CompileTimeFirst.Sample.ReadModel
+@inject IReadSchoolDbFactory readFactory
+@inject IReadQueryExecutor executor
+@inject IReadProviderInfo providerInfo
+
+<div class="alert alert-info">
+    Active provider: <strong>@ProviderName</strong>
+</div>
+
+@if (Items is null)
+{
+    <p class="text-muted">Loading subjects...</p>
+}
+else if (Items.Count == 0)
+{
+    <p class="text-muted">No active subjects found.</p>
+}
+else
+{
+    <ul class="list-group">
+        @foreach (var subject in Items)
+        {
+            <li class="list-group-item d-flex justify-content-between">
+                <span>@subject.Name</span>
+                <small class="text-muted">@subject.Id</small>
+            </li>
+        }
+    </ul>
+
+    <nav class="d-flex justify-content-between align-items-center mt-3" aria-label="Subjects pages">
+        <button class="btn btn-outline-secondary" disabled="@(!HasPreviousPage)"
+                @onclick="LoadPreviousPageAsync">
+            Previous
+        </button>
+        <span>Page @(CurrentPage + 1) of @TotalPages (@TotalCount items)</span>
+        <button class="btn btn-outline-secondary" disabled="@(!HasNextPage)"
+                @onclick="LoadNextPageAsync">
+            Next
+        </button>
+    </nav>
+}
+
+@code {
+    public const int PageSize = 10;
+
+    [PersistentState]
+    public int CurrentPage { get; set; }
+
+    [PersistentState]
+    public int TotalCount { get; set; }
+
+    [PersistentState]
+    public IReadOnlyList<SubjectReadItem>? Items { get; set; }
+
+    public int TotalPages => Math.Max(1, (TotalCount + PageSize - 1) / PageSize);
+
+    public bool HasPreviousPage => CurrentPage > 0;
+
+    public bool HasNextPage => CurrentPage + 1 < TotalPages;
+
+    public string ProviderName => providerInfo.Name;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Items is null)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private Task LoadPreviousPageAsync() => LoadAsync(CurrentPage - 1);
+
+    private Task LoadNextPageAsync() => LoadAsync(CurrentPage + 1);
+
+    public async Task LoadAsync(
+        int page = 0,
+        CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(0, page);
+
+        await using var db = await readFactory.CreateAsync(cancellationToken);
+        var result = await executor.ToPageAsync(
+            db.Subjects
+                .Where(x => x.IsActive)
+                .OrderBy(x => x.Name)
+                .ThenBy(x => x.Id),
+            page * PageSize,
+            PageSize,
+            cancellationToken);
+
+        Items = result.Items;
+        TotalCount = result.TotalCount;
+        CurrentPage = page;
+    }
+}

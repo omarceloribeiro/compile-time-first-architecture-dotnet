@@ -116,6 +116,20 @@ public sealed class TenantIsolationTests
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
     }
 
+    [Fact]
+    public async Task Account_cannot_reference_a_tenant_that_does_not_exist()
+    {
+        await using var database = await TestDatabase.CreateAsync();
+        await using var db = database.CreateUnfilteredContext();
+
+        db.Users.Add(new SchoolUser(Guid.NewGuid(), "orphan", Guid.NewGuid())
+        {
+            NormalizedUserName = "ORPHAN"
+        });
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+    }
+
     private static async Task<Guid> SeedSubjectAsync(TestDatabase database, Guid tenantId, string name)
     {
         var id = Guid.NewGuid();

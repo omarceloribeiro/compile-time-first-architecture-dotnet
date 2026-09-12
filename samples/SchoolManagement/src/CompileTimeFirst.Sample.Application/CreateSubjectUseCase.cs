@@ -28,8 +28,6 @@ public sealed class CreateSubjectUseCase(
         CreateSubjectRequest request,
         CancellationToken cancellationToken)
     {
-        Validate(request);
-
         await using var db = await contextFactory.CreateDbContextAsync(cancellationToken);
 
         var nameAlreadyExists = await db.Subjects
@@ -46,13 +44,5 @@ public sealed class CreateSubjectUseCase(
         await db.SaveChangesAsync(cancellationToken);
 
         return new CreateSubjectResult(subject.Id);
-    }
-
-    private static void Validate(CreateSubjectRequest request)
-    {
-        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 200)
-        {
-            throw new UseCaseValidationException("Subject name must contain between 1 and 200 characters.");
-        }
     }
 }

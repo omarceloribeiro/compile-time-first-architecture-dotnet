@@ -25,6 +25,9 @@ Architecture:
   correct one; an unresolved tenant reads nothing;
 - moves the sample from the in-memory provider to SQLite, so the composite-key guarantee is enforced
   and testable rather than configured and unproven;
+- replaces the tenant selector with ASP.NET Core Identity cookie authentication. Each seeded account
+  has one tenant foreign key, projected by the server as `tenant_id` for both Blazor and same-origin
+  OData requests;
 - names the table of every entity in the shared configuration. Table naming otherwise follows the
   `DbSet` property, which the read context does not declare - the two contexts mapped the same
   entity to different tables while every other part of the model matched.
@@ -35,7 +38,9 @@ Render modes:
 - keeps Interactive Auto, WebAssembly and OData in the same solution - Interactive Auto exercises
   both Server and WebAssembly from one component, and isolating it would remove that coverage - but
   marks it experimental and forbids generating anything for it unless a specification explicitly
-  requests Interactive Auto (ADR 0009).
+  requests Interactive Auto (ADR 0009);
+- preserves prerendered state during hydration and places unexpected Auto/OData failures under an
+  interactive error boundary that never renders exception messages.
 
 Enforcement:
 

@@ -43,7 +43,9 @@ The tenant accessor returns `Guid?` and never throws. Code runs without a user i
 it first appears — seeding, the dependency-injection build gate, background work, tests — and an
 accessor that throws turns those into startup failures.
 
-The tenant entity is not filtered, because a tenant must be listed before one is selected.
+The tenant and Identity user entities are not filtered, because authentication must locate an
+account before its tenant can be resolved. Each account has one required tenant foreign key. A
+server-side claims principal factory projects that value into the Identity cookie as `tenant_id`.
 
 ## Consequences
 
@@ -55,9 +57,10 @@ The tenant entity is not filtered, because a tenant must be listed before one is
   database;
 - the sample uses a relational provider so the composite-key guarantee is actually enforced; the
   in-memory provider would have left it configured but unproven;
-- the tenant entity's exemption is a real hole if a tenant list is sensitive. In the sample the
-  selector stands in for authentication; in production the tenant comes from a claim and the
-  selector does not exist;
-- tenant propagation across the experimental OData boundary is not covered. That path crosses HTTP
-  rather than a Blazor circuit, and is recorded as a known gap rather than closed by weakening the
-  filter.
+- tenant metadata is not exposed by the sample's authenticated read endpoints. An application that
+  exposes a tenant catalog must authorize that surface explicitly;
+- the same-origin Identity cookie crosses the experimental OData HTTP boundary. The server resolves
+  `tenant_id` again for that request before applying the same global filter; the browser never sends
+  a tenant identifier of its own;
+- changing tenant requires logout and a new login, which creates a new request and Blazor circuit.
+  Multi-profile account selection is outside this decision.

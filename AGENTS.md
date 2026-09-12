@@ -240,9 +240,10 @@ is kept in the same solution deliberately: Interactive Auto exercises both Serve
 from one component, so isolating it would remove that coverage. Keeping it costs nothing as long as
 nothing new is generated for it by default.
 
-Known gaps in that path: authentication, OData limits, trimming and AOT, and tenant propagation
-across the OData boundary. Do not present it as production-ready, and do not rely on it in a
-feature that a specification did not scope for it.
+Known gaps in that path: generated-client metadata lifecycle, OData exposure beyond the sample's
+small read surface, and trimming and AOT. The sample authenticates same-origin OData with the
+Identity cookie and resolves its tenant from a server-issued claim, but the path remains
+experimental and must not be presented as production-ready.
 
 ## Portable LINQ
 

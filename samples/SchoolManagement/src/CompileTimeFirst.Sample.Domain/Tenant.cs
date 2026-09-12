@@ -3,9 +3,9 @@ namespace CompileTimeFirst.Sample.Domain;
 /// <summary>
 /// The isolation boundary every other entity belongs to.
 ///
-/// Deliberately not itself filtered: a tenant selector has to list tenants before a tenant exists.
-/// In production the tenant comes from a claim resolved on the server and is never chosen by the
-/// client - the sample's selector stands in for authentication, not for the trust model.
+/// Deliberately not itself filtered: Identity must resolve an account before the account's tenant
+/// exists in the current operation. The server emits that tenant as a claim; the client never
+/// chooses the isolation boundary.
 /// </summary>
 public sealed class Tenant
 {

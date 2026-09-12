@@ -10,6 +10,8 @@ Document the persistence invariants already represented by the School Management
 - `Grade`: ordered reference catalog item; inactive items cannot receive new questions.
 - `Question`: owns its statement, type, creation timestamp and answer options.
 - `QuestionOption`: child of exactly one question.
+- `Tenant`: isolation boundary for school content.
+- `SchoolUser`: ASP.NET Core Identity account bound to exactly one Tenant.
 
 ## Relationships and cardinalities
 
@@ -17,6 +19,7 @@ Document the persistence invariants already represented by the School Management
 - A Question references exactly one Grade.
 - A Question owns zero or more QuestionOptions.
 - Deleting a Question cascades to its QuestionOptions.
+- A Tenant has zero or more SchoolUsers; every SchoolUser references exactly one Tenant.
 
 ## Invariants
 
@@ -26,7 +29,15 @@ Document the persistence invariants already represented by the School Management
 
 ## Multi-tenancy
 
-Not modeled in this sample. No tenant boundary may be inferred from the current entities.
+Subject, Grade, Question and QuestionOption are tenant-owned. Each carries `TenantId`, has a
+`(TenantId, Id)` alternate key and is protected by the named global query filter `Tenant` in both
+contexts. Foreign keys between tenant-owned entities include `TenantId`, making cross-tenant
+references unrepresentable.
+
+An unresolved tenant reads no tenant-owned rows. Writes obtain the tenant from `ICurrentUser`, never
+from the request. ASP.NET Core Identity stores the account-to-tenant foreign key and emits its value
+as the server-owned `tenant_id` claim. The same Identity cookie authenticates server components and
+same-origin OData requests. Switching tenant requires logout and login as another account.
 
 ## History and deletion
 
@@ -40,7 +51,6 @@ Not modeled. Every successful create request produces a new Question identifier.
 
 - Authorization model for content editors.
 - Archive/delete policy for Questions.
-- Tenant isolation.
 - Optimistic concurrency and audit history.
 
 ## Related functional specs

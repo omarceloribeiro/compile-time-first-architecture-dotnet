@@ -48,9 +48,9 @@ O custo de mantê-lo é controlado por regra, não por isolamento — nada novo 
 caminho a menos que a spec da feature peça Interactive Auto explicitamente. Veja a seção
 "Experimental render modes" em [AGENTS.md](AGENTS.md).
 
-Valide antes de habilitar em produção: autenticação e autorização na fronteira OData, limites de
-consulta OData, compatibilidade com trimming/AOT e a propagação de tenant, que atravessa uma
-fronteira HTTP em vez de um circuito Blazor.
+O sample valida autenticação ASP.NET Core Identity no mesmo domínio e propagação do tenant por uma
+claim emitida pelo servidor. Antes de habilitar em produção, ainda valide a exposição e os limites
+das consultas OData, o ciclo de metadados do cliente gerado e a compatibilidade com trimming/AOT.
 
 Consulte também [Architecture.md](Architecture.md), [AGENTS.md](AGENTS.md) e o
 [ADR 0006](docs/adr/0006-well-known-first.md).

@@ -1,10 +1,12 @@
 using CompileTimeFirst.Sample.Domain;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace CompileTimeFirst.Sample.Data;
 
 public sealed class SchoolDbContext(DbContextOptions<SchoolDbContext> options)
-    : DbContext(options), ITenantScope
+    : IdentityDbContext<SchoolUser, IdentityRole<Guid>, Guid>(options), ITenantScope
 {
     /// <summary>Assigned by the factory that creates this context, once per operation.</summary>
     public Guid? TenantId { get; set; }
@@ -18,6 +20,13 @@ public sealed class SchoolDbContext(DbContextOptions<SchoolDbContext> options)
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        base.OnModelCreating(modelBuilder);
         DomainModelConfiguration.Configure(modelBuilder, this);
+
+        modelBuilder.Entity<SchoolUser>()
+            .HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(user => user.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

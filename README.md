@@ -59,9 +59,10 @@ The sample runs on a relational provider for this reason: composite foreign keys
 by a database that enforces foreign keys, so the in-memory provider could not demonstrate the
 guarantee the architecture claims.
 
-Known gap, deliberately left open: tenant propagation across the experimental OData boundary crosses
-HTTP instead of a Blazor circuit. It is recorded as a gap rather than closed by weakening the
-filter. See [ADR 0012](docs/adr/0012-tenant-isolation-with-named-query-filters.md).
+The sample closes the tenant-propagation gap for its experimental same-origin OData path: ASP.NET
+Core Identity emits the account's tenant as a server-owned claim, and the OData request carries the
+same authentication cookie. The browser never supplies a tenant identifier. See
+[ADR 0012](docs/adr/0012-tenant-isolation-with-named-query-filters.md).
 
 ### The build is the gate, so an agent cannot finish while violating the architecture
 
@@ -234,12 +235,16 @@ cost of keeping it is controlled by a rule rather than by isolation — nothing 
 this path unless a feature specification explicitly asks for Interactive Auto. See
 [`AGENTS.md`](AGENTS.md), section "Experimental render modes".
 
-Validate before enabling it in production:
+Already validated by the sample:
 
-- authentication and authorization across the OData boundary;
+- same-origin ASP.NET Core Identity authentication and authorization;
+- tenant propagation through the server-issued cookie claim.
+
+Still validate before enabling it in production:
+
 - OData query limits and exposure of the read surface;
-- trimming and AOT compatibility of the browser provider;
-- tenant propagation, which crosses an HTTP boundary instead of a Blazor circuit.
+- generated-client metadata lifecycle;
+- trimming and AOT compatibility of the browser provider.
 
 ## What this architecture intentionally avoids
 
@@ -262,7 +267,8 @@ It does **not** reject DDD, CQRS, repositories or messaging categorically. It ap
 file the default home for code-behind; makes Interactive Auto, WebAssembly and OData an experimental
 path that only a specification may extend; makes the architecture analyzers scope by Roslyn symbol
 and analyze Razor-generated code, which was previously unchecked; shares one EF Core model
-configuration between the write and read contexts; encapsulates domain entities.
+configuration between the write and read contexts; encapsulates domain entities; and binds each
+seeded ASP.NET Core Identity account to one tenant for both server and same-origin OData reads.
 
 Validate provider-specific LINQ, installed API versions and production security constraints in each
 application.

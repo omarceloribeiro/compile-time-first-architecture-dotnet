@@ -283,9 +283,10 @@ Lifting the filter is possible, named and narrow:
 `IgnoreQueryFilters([DomainModelConfiguration.TenantFilter])`, confined to composition roots,
 seeders and migrations.
 
-The tenant entity itself is deliberately unfiltered, because a tenant has to be resolved before one
-exists. In the sample a selector stands in for authentication; in production the tenant comes from a
-claim resolved on the server and is never chosen by the client.
+The tenant entity itself is deliberately unfiltered because Identity must resolve an account before
+its tenant exists in the current operation. Each account has one required tenant foreign key. The
+server projects that value into the authenticated cookie as a claim; `ICurrentUser` reads it and the
+client never chooses its own tenant.
 
 ## 7. Read-only context
 
@@ -317,8 +318,9 @@ Interactive Auto without replacing provider-specific terminals.
 and loads the requested page sequentially on the same context. The OData implementation requests
 `$count`, `$skip` and `$top` and materializes through browser `HttpClient`.
 
-Validate authentication, OData limits, trimming and AOT compatibility before enabling the client
-provider in production.
+The sample validates same-origin cookie authentication and tenant propagation across OData. Validate
+generated-client metadata lifecycle, broader OData exposure, trimming and AOT compatibility before
+enabling the client provider in production.
 
 ## 9. Exports
 

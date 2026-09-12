@@ -85,6 +85,17 @@ public sealed class CreateQuestionUseCaseTests
                 [new("Yes", true, 1), new("No", false, 2)])));
     }
 
+    [Theory]
+    [MemberData(nameof(InvalidAnnotatedRequests))]
+    public async Task Data_annotations_reject_invalid_question_contract(CreateQuestionRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var fixture = await QuestionFixture.CreateAsync();
+        var useCase = new CreateQuestionUseCase(fixture.Factory, fixture.Database.CurrentUser, fixture.TimeProvider);
+
+        await Assert.ThrowsAsync<UseCaseValidationException>(() => useCase.ExecuteAsync(request));
+    }
+
     public static TheoryData<QuestionType, IReadOnlyCollection<CreateQuestionOptionRequest>> ValidRequests =>
         new()
         {
@@ -101,6 +112,41 @@ public sealed class CreateQuestionUseCaseTests
                 new[] { new CreateQuestionOptionRequest("True", true, 1), new("False", false, 2) }
             },
             { QuestionType.OpenText, Array.Empty<CreateQuestionOptionRequest>() }
+        };
+
+    public static TheoryData<CreateQuestionRequest> InvalidAnnotatedRequests =>
+        new()
+        {
+            new CreateQuestionRequest(
+                " ",
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                QuestionType.OpenText,
+                []),
+            new CreateQuestionRequest(
+                new string('x', QuestionShape.MaxStatementLength + 1),
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                QuestionType.OpenText,
+                []),
+            new CreateQuestionRequest(
+                "Question",
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                (QuestionType)999,
+                []),
+            new CreateQuestionRequest(
+                "Question",
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                QuestionType.SingleChoice,
+                [new(" ", true, 1), new("Two", false, 2)]),
+            new CreateQuestionRequest(
+                "Question",
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                QuestionType.SingleChoice,
+                [new("One", true, 0), new("Two", false, 2)])
         };
 
     private sealed record QuestionFixture(
