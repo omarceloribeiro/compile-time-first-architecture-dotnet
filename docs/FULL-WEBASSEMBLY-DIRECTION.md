@@ -80,6 +80,30 @@ This allows a human or coding agent to create new screens without adding one ser
 screen when the required data is already present in the approved read model. Missing data or new
 business meaning requires an explicit server-side design change.
 
+### TypeScript client direction
+
+A future React, Angular or Vue client should first evaluate using the standard OData protocol
+directly instead of requiring a third-party query-builder vocabulary. `URLSearchParams` keeps simple
+incidental queries explicit, framework-independent and easy for a human or coding agent to create:
+
+```typescript
+const query = new URLSearchParams({
+  $select: "Id,Name",
+  $filter: "IsActive eq true",
+  $orderby: "Name,Id",
+  $top: "20"
+});
+
+const response = await fetch(`/odata/Subjects?${query}`);
+const page = await response.json() as ODataPage<SubjectReadItem>;
+```
+
+The OData `$metadata` document may generate TypeScript response models without also imposing a
+query-builder library. The server remains responsible for the approved EDM surface, authentication,
+tenant isolation, query validation, complexity limits and paging. Client code must encode dynamic
+values correctly, must not concatenate unescaped user input into an OData expression, and must test
+its emitted query against the real API.
+
 ## Error model
 
 A single interactive tree makes client error handling more stable than the current per-page Auto
