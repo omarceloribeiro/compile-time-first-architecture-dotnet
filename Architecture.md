@@ -240,9 +240,12 @@ The contract and its validation are the same artifact, visible to callers, tests
 builds the request.
 
 The application layer defines typed failures - a validation exception carrying the rejected rules,
-and a not-found exception. A screen catches those by type and renders their message inline; anything
-else reaches the layout error boundary and is rendered generically. An infrastructure exception is
-never shown as text, because its message means nothing to the user and describes internals.
+and a not-found exception. A screen catches those by type and renders their message inline. In the
+supported Blazor Server profile, anything else reaches one global interactive layout error boundary
+and is rendered generically. The boundary is recovered after navigation and by an explicit retry;
+it covers lifecycle, rendering and event failures in its interactive subtree, not HTTP failures or
+work detached from the renderer. An infrastructure exception is never shown as text, because its
+message means nothing to the user and describes internals.
 
 `TimeProvider` is injected wherever the current instant is needed. Ambient time is a dependency that
 cannot be tested, so it is treated as one.
@@ -285,8 +288,14 @@ seeders and migrations.
 
 The tenant entity itself is deliberately unfiltered because Identity must resolve an account before
 its tenant exists in the current operation. Each account has one required tenant foreign key. The
-server projects that value into the authenticated cookie as a claim; `ICurrentUser` reads it and the
-client never chooses its own tenant.
+server claims factory removes persisted occurrences of the reserved `tenant_id` claim and emits
+exactly one value from `SchoolUser.TenantId`. The reader accepts only an authenticated principal with
+exactly one valid tenant claim; every other shape denies by default.
+
+`ICurrentUser` is a scoped value holder, not a wrapper around `IHttpContextAccessor`. Middleware
+captures the principal for SSR and HTTP/OData requests. A `CircuitHandler` captures it from
+`AuthenticationStateProvider` when a Blazor circuit opens or reconnects and follows authentication
+state changes. The client never chooses its own tenant.
 
 ## 7. Read-only context
 
@@ -298,7 +307,16 @@ The read context:
 - may later point to a read replica;
 - exposes only approved read surfaces.
 
-## 8. Render-mode-independent terminals and Interactive Auto
+## 8. Supported Server profile and experimental Interactive Auto
+
+`CompileTimeFirst.Sample.BlazorServer` is the supported Blazor presentation. `HeadOutlet` and
+`Routes` use global Interactive Server, so the layout, authentication state and generic error
+boundary belong to one interactive tree. It has no reference to WebAssembly, OData or the Auto host.
+
+`CompileTimeFirst.Sample.BlazorAuto` and `CompileTimeFirst.Sample.BlazorAuto.Client` are a physically
+isolated experimental spike in the same solution. They retain a page-local interactive boundary:
+the per-page Auto model cannot rely on a static ancestor layout to catch client-side component
+failures. Full Blazor WebAssembly is a future architecture and is not created by this sample.
 
 A shared `IReadDb` contract can be implemented by two providers:
 
@@ -318,9 +336,11 @@ Interactive Auto without replacing provider-specific terminals.
 and loads the requested page sequentially on the same context. The OData implementation requests
 `$count`, `$skip` and `$top` and materializes through browser `HttpClient`.
 
-The sample validates same-origin cookie authentication and tenant propagation across OData. Validate
-generated-client metadata lifecycle, broader OData exposure, trimming and AOT compatibility before
-enabling the client provider in production.
+The Auto host validates same-origin cookie authentication and tenant propagation across OData.
+Validate generated-client metadata lifecycle, broader OData exposure, trimming and AOT
+compatibility before enabling the client provider in production. Tenant metadata is deliberately
+absent from the portable read surface; a future tenant catalog requires an explicit authorized
+contract.
 
 ## 9. Exports
 

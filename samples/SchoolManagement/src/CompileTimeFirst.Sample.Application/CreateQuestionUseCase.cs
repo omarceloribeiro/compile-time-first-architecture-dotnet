@@ -14,7 +14,7 @@ public interface ICreateQuestionUseCase : IUseCase
 
 public sealed record CreateQuestionRequest(
     [property: Required(ErrorMessage = "Statement is required.")]
-    [property: StringLength(
+    [property: TrimmedStringLength(
         QuestionShape.MaxStatementLength,
         ErrorMessage = "Statement must contain at most 4,000 characters.")]
     string Statement,
@@ -112,7 +112,7 @@ public sealed record CreateQuestionRequest(
 
 public sealed record CreateQuestionOptionRequest(
     [property: Required(ErrorMessage = "Option text is required.")]
-    [property: StringLength(
+    [property: TrimmedStringLength(
         QuestionShape.MaxOptionTextLength,
         ErrorMessage = "Option text must contain at most 1,000 characters.")]
     string Text,

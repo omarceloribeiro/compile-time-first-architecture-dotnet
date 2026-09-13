@@ -44,8 +44,17 @@ it first appears — seeding, the dependency-injection build gate, background wo
 accessor that throws turns those into startup failures.
 
 The tenant and Identity user entities are not filtered, because authentication must locate an
-account before its tenant can be resolved. Each account has one required tenant foreign key. A
-server-side claims principal factory projects that value into the Identity cookie as `tenant_id`.
+account before its tenant can be resolved. Each account has one required tenant foreign key.
+`tenant_id` is a reserved server-owned claim: the claims principal factory removes every persisted
+occurrence before emitting exactly one value derived from `SchoolUser.TenantId`. The reader accepts
+only an authenticated principal containing exactly one valid `Guid` value; missing, invalid or
+duplicate claims deny the tenant.
+
+`ICurrentUser` stores the captured tenant in the current dependency-injection scope. Middleware
+initializes it from `HttpContext.User` for SSR and HTTP/OData requests. A `CircuitHandler`
+initializes and refreshes it through `AuthenticationStateProvider` as a Blazor circuit opens,
+reconnects or observes an authentication-state change. It does not depend on a request-only
+`IHttpContextAccessor` after the circuit outlives the initiating request.
 
 ## Consequences
 
@@ -59,6 +68,7 @@ server-side claims principal factory projects that value into the Identity cooki
   in-memory provider would have left it configured but unproven;
 - tenant metadata is not exposed by the sample's authenticated read endpoints. An application that
   exposes a tenant catalog must authorize that surface explicitly;
+- persisted user claims cannot override or duplicate the account's authoritative tenant claim;
 - the same-origin Identity cookie crosses the experimental OData HTTP boundary. The server resolves
   `tenant_id` again for that request before applying the same global filter; the browser never sends
   a tenant identifier of its own;

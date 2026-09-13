@@ -95,6 +95,9 @@ The sample demonstrates:
 - paged incidental reads through the same executor contract in EF Core and browser OData;
 - a business read use case for a dashboard;
 - an export use case whose formats share one typed report model.
+- a supported Blazor Server host with global Interactive Server and one interactive layout error
+  boundary;
+- an experimental Auto/OData spike isolated in its own host and WebAssembly client projects.
 
 The sample targets `.NET 10` and uses SQLite in-memory for demonstration.
 
@@ -102,6 +105,7 @@ The sample targets `.NET 10` and uses SQLite in-memory for demonstration.
 dotnet restore samples/SchoolManagement/CompileTimeFirst.Sample.sln
 dotnet build samples/SchoolManagement/CompileTimeFirst.Sample.sln -c Release
 dotnet test samples/SchoolManagement/CompileTimeFirst.Sample.sln -c Release --no-build
+dotnet run --project samples/SchoolManagement/src/CompileTimeFirst.Sample.BlazorServer
 dotnet run --project samples/SchoolManagement/src/CompileTimeFirst.Sample.Console
 ```
 
@@ -224,16 +228,23 @@ samples/
   SchoolManagement/
 ```
 
+This repository is intentionally .NET-specific. Future ASP.NET Core API, Razor Pages and MVC
+profiles may be sibling projects that share the same core class libraries. Java, Rust, Go and Python
+profiles belong in their own repositories so each can use its idiomatic language rules, build gate
+and toolchain instead of imitating .NET structure.
+
 ## Experimental: Interactive Auto, WebAssembly and OData
 
-**Interactive Server is the supported path.** The Interactive Auto, WebAssembly and browser OData
-code in the sample is experimental and is not a production-ready path.
+**`CompileTimeFirst.Sample.BlazorServer` is the supported path.** It uses global Interactive Server;
+its layout and generic `ErrorBoundary` form one interactive tree, and the project has no OData or
+WebAssembly dependency.
 
-It stays in the same solution on purpose: Interactive Auto exercises both Server and WebAssembly
-from a single component, so a separate sample would duplicate hosts and lose that coverage. The
-cost of keeping it is controlled by a rule rather than by isolation — nothing new is generated for
-this path unless a feature specification explicitly asks for Interactive Auto. See
-[`AGENTS.md`](AGENTS.md), section "Experimental render modes".
+Interactive Auto, WebAssembly and browser OData remain experimental. They stay in the same solution
+for build and test coverage but are physically isolated in `CompileTimeFirst.Sample.BlazorAuto` and
+`CompileTimeFirst.Sample.BlazorAuto.Client`. One component still exercises both Server and
+WebAssembly execution without coupling the supported host to the spike. Nothing new is generated
+for this path unless a feature specification explicitly asks for Interactive Auto. See [`AGENTS.md`](AGENTS.md),
+section "Experimental render modes", and [ADR 0009](docs/adr/0009-experimental-render-modes.md).
 
 Already validated by the sample:
 
@@ -264,8 +275,8 @@ It does **not** reject DDD, CQRS, repositories or messaging categorically. It ap
 ## Status
 
 `v0.5` — removes the ViewModel layer and moves screen state into the component; makes the `.razor`
-file the default home for code-behind; makes Interactive Auto, WebAssembly and OData an experimental
-path that only a specification may extend; makes the architecture analyzers scope by Roslyn symbol
+file the default home for code-behind; makes global Interactive Server the supported Blazor profile
+and physically isolates the specification-gated Auto/OData spike; makes the architecture analyzers scope by Roslyn symbol
 and analyze Razor-generated code, which was previously unchecked; shares one EF Core model
 configuration between the write and read contexts; encapsulates domain entities; and binds each
 seeded ASP.NET Core Identity account to one tenant for both server and same-origin OData reads.

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using CompileTimeFirst.Sample.Application.Questions;
 using CompileTimeFirst.Sample.Data;
 using CompileTimeFirst.Sample.Domain;
 using Microsoft.EntityFrameworkCore;
@@ -15,10 +16,15 @@ public interface ICreateQuestionOptionUseCase : IUseCase
 public sealed record CreateQuestionOptionRequest(
     Guid QuestionId,
     [property: Required(ErrorMessage = "Option text is required.")]
-    [property: StringLength(1_000, ErrorMessage = "Option text must contain at most 1,000 characters.")]
+    [property: TrimmedStringLength(
+        QuestionShape.MaxOptionTextLength,
+        ErrorMessage = "Option text must contain at most 1,000 characters.")]
     string Text,
     bool IsCorrect,
-    [property: Range(1, 100, ErrorMessage = "Option order must be between 1 and 100.")]
+    [property: Range(
+        1,
+        QuestionShape.MaxOptions,
+        ErrorMessage = "Option order must be between 1 and 100.")]
     int Order);
 
 public sealed record CreateQuestionOptionResult(Guid OptionId);

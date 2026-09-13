@@ -17,6 +17,8 @@ Architecture:
   validation and not-found exceptions caught by a filtered `catch when` in the screen; an
   infrastructure exception now reaches a layout error boundary instead of being rendered as text
   (ADR 0011);
+- validates normalized text lengths after `Trim()` through one DataAnnotation shared by question
+  contracts and the form, while persistence performs the normalization;
 - injects `TimeProvider` instead of reading `DateTimeOffset.UtcNow`, with `FakeTimeProvider` in
   tests asserting the persisted timestamp;
 - adds structural multi-tenancy: `(TenantId, Id)` alternate keys, composite foreign keys that make a
@@ -28,19 +30,26 @@ Architecture:
 - replaces the tenant selector with ASP.NET Core Identity cookie authentication. Each seeded account
   has one tenant foreign key, projected by the server as `tenant_id` for both Blazor and same-origin
   OData requests;
+- reserves `tenant_id` as a server-owned claim, rejects missing, invalid or duplicate values, and
+  captures the current principal independently for HTTP requests and Blazor circuits;
+- removes tenant enumeration from the portable read surface; an authorized tenant catalog remains
+  a future product contract;
 - names the table of every entity in the shared configuration. Table naming otherwise follows the
   `DbSet` property, which the read context does not declare - the two contexts mapped the same
   entity to different tables while every other part of the model matched.
 
 Render modes:
 
-- makes Interactive Server the primary documented path;
-- keeps Interactive Auto, WebAssembly and OData in the same solution - Interactive Auto exercises
-  both Server and WebAssembly from one component, and isolating it would remove that coverage - but
-  marks it experimental and forbids generating anything for it unless a specification explicitly
-  requests Interactive Auto (ADR 0009);
+- renames the supported host to `CompileTimeFirst.Sample.BlazorServer`, makes `HeadOutlet` and
+  `Routes` globally Interactive Server and gives the interactive layout one recoverable generic
+  error boundary;
+- isolates Interactive Auto, WebAssembly and OData in `CompileTimeFirst.Sample.BlazorAuto` and
+  `CompileTimeFirst.Sample.BlazorAuto.Client`, while keeping them in the same solution for build and
+  test coverage and forbidding extension without an explicit specification (ADR 0009);
 - preserves prerendered state during hydration and places unexpected Auto/OData failures under an
   interactive error boundary that never renders exception messages.
+- keeps anonymous OData responses status-only and converts invalid login/logout antiforgery tokens
+  into generic `400` responses.
 
 Enforcement:
 

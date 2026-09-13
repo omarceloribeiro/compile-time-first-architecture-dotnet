@@ -37,16 +37,22 @@ O guia [Well-Known First e transparência semântica](docs/WELL-KNOWN-FIRST.md) 
 linguagem privada, o papel do design system e como o uso explícito de uma biblioteca visual pode
 tornar uma futura migração mais mecânica para agentes de IA.
 
+Este repositório é deliberadamente específico para .NET. Perfis futuros de ASP.NET Core API, Razor
+Pages e MVC podem entrar como projetos irmãos compartilhando as class libraries centrais. Perfis de
+Java, Rust, Go e Python devem usar repositórios próprios, com regras, build e toolchains idiomáticos.
+
 ## Experimental: Interactive Auto, WebAssembly e OData
 
-**Interactive Server é o caminho suportado.** O código de Interactive Auto, WebAssembly e OData no
-navegador presente no sample é experimental e não é um caminho pronto para produção.
+**`CompileTimeFirst.Sample.BlazorServer` é o caminho suportado.** Ele usa Interactive Server global;
+o layout e seu `ErrorBoundary` genérico formam uma única árvore interativa, sem dependências de
+WebAssembly ou OData.
 
-Ele permanece na mesma solution de propósito: Interactive Auto exercita Server e WebAssembly a
-partir de um único componente, então um sample separado duplicaria hosts e perderia essa cobertura.
-O custo de mantê-lo é controlado por regra, não por isolamento — nada novo é gerado para esse
-caminho a menos que a spec da feature peça Interactive Auto explicitamente. Veja a seção
-"Experimental render modes" em [AGENTS.md](AGENTS.md).
+Interactive Auto, WebAssembly e OData no navegador continuam experimentais. Eles permanecem na
+mesma solution para cobertura de build e testes, mas estão fisicamente isolados nos projetos
+`CompileTimeFirst.Sample.BlazorAuto` e `CompileTimeFirst.Sample.BlazorAuto.Client`. Um único
+componente ainda exercita Server e WebAssembly sem acoplar o host suportado ao spike. Nada novo é
+gerado nesse caminho sem uma spec que peça Interactive Auto explicitamente. Veja a seção
+"Experimental render modes" em [AGENTS.md](AGENTS.md) e o [ADR 0009](docs/adr/0009-experimental-render-modes.md).
 
 O sample valida autenticação ASP.NET Core Identity no mesmo domínio e propagação do tenant por uma
 claim emitida pelo servidor. Antes de habilitar em produção, ainda valide a exposição e os limites

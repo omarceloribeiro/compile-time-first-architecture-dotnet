@@ -1,0 +1,12 @@
+<Router AppAssembly="typeof(BlazorAutoEntryPoint).Assembly"
+        AdditionalAssemblies="new[] { typeof(CompileTimeFirst.Sample.BlazorAuto.Client._Imports).Assembly }"
+        NotFoundPage="typeof(Pages.NotFound)">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+            <NotAuthorized>
+                <RedirectToLogin />
+            </NotAuthorized>
+        </AuthorizeRouteView>
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+</Router>

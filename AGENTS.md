@@ -192,8 +192,10 @@ Failures are typed application exceptions: a validation exception carrying the r
 not-found exception. A page catches them by type with a filtered `catch when` and renders the
 message.
 
-An infrastructure exception never becomes text on a screen. It reaches the layout error boundary and
-is rendered generically. If a condition deserves a specific message to the user, it deserves a typed
+An infrastructure exception never becomes text on a screen. In the supported Blazor Server profile
+it reaches the global interactive layout error boundary and is rendered generically. The
+experimental Auto page owns a local interactive boundary because its host does not make the whole
+layout interactive. If a condition deserves a specific message to the user, it deserves a typed
 application exception.
 
 ## Time
@@ -235,10 +237,14 @@ provider, project reference or render-mode attribute for Interactive Auto, WebAs
 unless the feature specification explicitly requests Interactive Auto and names what it needs.
 Absence of instruction means Interactive Server only.
 
-The existing Auto/OData code in the sample is a reference to read, not a template to replicate. It
-is kept in the same solution deliberately: Interactive Auto exercises both Server and WebAssembly
-from one component, so isolating it would remove that coverage. Keeping it costs nothing as long as
-nothing new is generated for it by default.
+The supported Blazor profile lives in `CompileTimeFirst.Sample.BlazorServer`. It uses global
+Interactive Server and must not reference the Auto host, WebAssembly client, OData packages or EDM.
+
+The existing Auto/OData code is a reference to read, not a template to replicate. It stays in the
+same solution so restore, analyzers, DI validation and tests cover it, but is physically isolated in
+`CompileTimeFirst.Sample.BlazorAuto` and `CompileTimeFirst.Sample.BlazorAuto.Client`. The Auto host
+exists because one component must exercise both Server and WebAssembly; that coverage does not
+justify contaminating the supported Server composition root.
 
 Known gaps in that path: generated-client metadata lifecycle, OData exposure beyond the sample's
 small read surface, and trimming and AOT. The sample authenticates same-origin OData with the

@@ -3,6 +3,10 @@
 > **Status: experimental spike.** See ADR 0009. Interactive Server is the supported path;
 > nothing is generated for this path unless a specification explicitly requests Interactive Auto.
 
+The spike is physically isolated in `CompileTimeFirst.Sample.BlazorAuto` and
+`CompileTimeFirst.Sample.BlazorAuto.Client`. The supported `CompileTimeFirst.Sample.BlazorServer`
+host does not reference it.
+
 ## Actor
 
 Developer evaluating provider-independent reads.
@@ -28,7 +32,12 @@ Prove that one Blazor component can execute the same portable LINQ query through
 - The client composes LINQ; it does not assemble OData query strings.
 - The result list uses `ToPageAsync` with a page size of 10.
 - The same-origin Identity cookie authenticates OData; `tenant_id` is resolved only on the server.
+- The portable read contract does not expose tenants; a tenant catalog requires a separately
+  authorized contract.
 - Prerendered state is reused during hydration instead of immediately executing the same load again.
+- Unexpected component failures are handled by the page-local interactive boundary. The split
+  between `AutoSubjects.razor` and `AutoSubjectsContent.razor` is explicit experimental scaffolding,
+  not the supported Server component convention.
 
 ## Acceptance criteria
 
@@ -40,6 +49,7 @@ Prove that one Blazor component can execute the same portable LINQ query through
 - [x] The server and client executors pass the same contract tests for supported terminal operations.
 - [x] Anonymous OData is rejected and each seeded Identity account sees only its tenant.
 - [x] Unexpected failures are rendered generically by an interactive error boundary.
+- [x] Anonymous OData returns an empty `401` without HTML, redirect or `Location`.
 - [x] Build, DI validation and tests pass.
 
 ## Outside the spike

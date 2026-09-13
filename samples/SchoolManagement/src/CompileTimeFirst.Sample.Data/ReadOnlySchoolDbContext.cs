@@ -11,14 +11,6 @@ public sealed class ReadOnlySchoolDbContext(
     /// <summary>Assigned by the factory that creates this context, once per operation.</summary>
     public Guid? TenantId { get; set; }
 
-    public IQueryable<TenantReadItem> Tenants =>
-        Set<Tenant>().Select(x => new TenantReadItem
-        {
-            Id = x.Id,
-            Name = x.Name,
-            IsActive = x.IsActive
-        });
-
     public IQueryable<SubjectReadItem> Subjects =>
         Set<Subject>().Select(x => new SubjectReadItem
         {

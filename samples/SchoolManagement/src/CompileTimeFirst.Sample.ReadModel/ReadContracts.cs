@@ -4,7 +4,6 @@ namespace CompileTimeFirst.Sample.ReadModel;
 
 public interface IReadSchoolDb
 {
-    IQueryable<TenantReadItem> Tenants { get; }
     IQueryable<SubjectReadItem> Subjects { get; }
     IQueryable<GradeReadItem> Grades { get; }
     IQueryable<QuestionReadItem> Questions { get; }
@@ -39,13 +38,6 @@ public interface IReadQueryExecutor
     Task<T?> SingleOrDefaultAsync<T>(IQueryable<T> query, CancellationToken cancellationToken = default);
     Task<int> CountAsync<T>(IQueryable<T> query, CancellationToken cancellationToken = default);
     Task<bool> AnyAsync<T>(IQueryable<T> query, CancellationToken cancellationToken = default);
-}
-
-public sealed class TenantReadItem
-{
-    public Guid Id { get; init; }
-    public required string Name { get; init; }
-    public bool IsActive { get; init; }
 }
 
 public sealed class SubjectReadItem

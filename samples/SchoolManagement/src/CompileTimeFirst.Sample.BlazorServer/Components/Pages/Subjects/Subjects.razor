@@ -1,0 +1,147 @@
+@page "/subjects"
+@attribute [Authorize]
+@using System.ComponentModel.DataAnnotations
+@using CompileTimeFirst.Sample.Application
+@using CompileTimeFirst.Sample.Application.Subjects
+@using CompileTimeFirst.Sample.ReadModel
+@inject IReadSchoolDbFactory ReadDbFactory
+@inject IReadQueryExecutor QueryExecutor
+@inject ICreateSubjectUseCase CreateSubject
+
+<PageTitle>Subjects</PageTitle>
+
+<h1>Subjects</h1>
+
+@if (successMessage is not null)
+{
+    <div class="alert alert-success">@successMessage</div>
+}
+
+@if (errorMessage is not null)
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Create New Subject</h5>
+        <EditForm Model="form" OnValidSubmit="HandleCreateAsync">
+            <DataAnnotationsValidator />
+            <div class="mb-3">
+                <label for="subjectName" class="form-label">Name</label>
+                <InputText id="subjectName" class="form-control" @bind-Value="form.Name" disabled="@isBusy" />
+                <ValidationMessage For="@(() => form.Name)" />
+            </div>
+            <button type="submit" class="btn btn-primary" disabled="@isBusy">
+                @if (isBusy)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                }
+                Create
+            </button>
+        </EditForm>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">Active Subjects (@totalCount)</h5>
+        @if (items.Count == 0)
+        {
+            <p class="text-muted">No subjects found.</p>
+        }
+        else
+        {
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>ID</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in items)
+                    {
+                        <tr>
+                            <td>@item.Name</td>
+                            <td><small class="text-muted">@item.Id</small></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <PaginationNav CurrentPage="currentPage" TotalCount="totalCount" PageSize="PageSize"
+                           OnPageRequested="LoadPageAsync" Label="Subjects pages" />
+        }
+    </div>
+</div>
+
+@code {
+    private const int PageSize = 10;
+
+    private IReadOnlyList<SubjectReadItem> items = [];
+    private SubjectForm form = new();
+    private int currentPage;
+    private int totalCount;
+    private bool isBusy;
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    // EventCallback<int> cannot bind to a method group with optional parameters.
+    private Task LoadPageAsync(int page) => LoadAsync(page);
+
+    private async Task LoadAsync(int page = 0, CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(0, page);
+
+        // The read scope and the query stay local to this operation; only materialized rows and
+        // the total count become component state.
+        await using var db = await ReadDbFactory.CreateAsync(cancellationToken);
+        var result = await QueryExecutor.ToPageAsync(
+            db.Subjects
+                .Where(x => x.IsActive)
+                .OrderBy(x => x.Name)
+                .ThenBy(x => x.Id),
+            page * PageSize,
+            PageSize,
+            cancellationToken);
+
+        items = result.Items;
+        totalCount = result.TotalCount;
+        currentPage = page;
+    }
+
+    private async Task HandleCreateAsync()
+    {
+        errorMessage = null;
+        successMessage = null;
+        isBusy = true;
+
+        try
+        {
+            var result = await CreateSubject.ExecuteAsync(
+                new CreateSubjectRequest(form.Name));
+
+            form = new SubjectForm();
+            successMessage = $"Subject created with id {result.SubjectId}.";
+            await LoadAsync(currentPage);
+        }
+        catch (Exception exception) when (exception is UseCaseValidationException or EntityNotFoundException)
+        {
+            errorMessage = exception.Message;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private sealed class SubjectForm
+    {
+        [Required(ErrorMessage = "Subject name is required.")]
+        [StringLength(200, ErrorMessage = "Subject name must contain at most 200 characters.")]
+        public string Name { get; set; } = string.Empty;
+    }
+}

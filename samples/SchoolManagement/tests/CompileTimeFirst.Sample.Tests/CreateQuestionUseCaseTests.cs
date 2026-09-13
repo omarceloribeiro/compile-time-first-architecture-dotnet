@@ -38,6 +38,29 @@ public sealed class CreateQuestionUseCaseTests
     }
 
     [Fact]
+    public async Task Accepts_and_normalizes_padded_text_at_the_declared_limits()
+    {
+        var fixture = await QuestionFixture.CreateAsync();
+        var useCase = new CreateQuestionUseCase(fixture.Factory, fixture.Database.CurrentUser, fixture.TimeProvider);
+        var statement = new string('s', QuestionShape.MaxStatementLength);
+        var optionText = new string('o', QuestionShape.MaxOptionTextLength);
+
+        var result = await useCase.ExecuteAsync(
+            new CreateQuestionRequest(
+                $"  {statement}  ",
+                fixture.SubjectId,
+                fixture.GradeId,
+                QuestionType.SingleChoice,
+                [new($"  {optionText}  ", true, 1), new("Other", false, 2)]));
+
+        await using var db = await fixture.Factory.CreateDbContextAsync();
+        var question = await db.Questions.Include(x => x.Options).SingleAsync(x => x.Id == result.QuestionId);
+
+        Assert.Equal(statement, question.Statement);
+        Assert.Equal(optionText, question.Options.Single(x => x.Order == 1).Text);
+    }
+
+    [Fact]
     public async Task Rejects_duplicate_option_orders_without_persisting()
     {
         var fixture = await QuestionFixture.CreateAsync();
@@ -124,7 +147,7 @@ public sealed class CreateQuestionUseCaseTests
                 QuestionType.OpenText,
                 []),
             new CreateQuestionRequest(
-                new string('x', QuestionShape.MaxStatementLength + 1),
+                $"  {new string('x', QuestionShape.MaxStatementLength + 1)}  ",
                 Guid.NewGuid(),
                 Guid.NewGuid(),
                 QuestionType.OpenText,
@@ -141,6 +164,12 @@ public sealed class CreateQuestionUseCaseTests
                 Guid.NewGuid(),
                 QuestionType.SingleChoice,
                 [new(" ", true, 1), new("Two", false, 2)]),
+            new CreateQuestionRequest(
+                "Question",
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                QuestionType.SingleChoice,
+                [new($"  {new string('o', QuestionShape.MaxOptionTextLength + 1)}  ", true, 1), new("Two", false, 2)]),
             new CreateQuestionRequest(
                 "Question",
                 Guid.NewGuid(),

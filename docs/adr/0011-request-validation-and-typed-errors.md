@@ -23,7 +23,15 @@ and asynchronous rules stay in `ExecuteCoreAsync`.
 
 The application layer defines two failure types: a validation exception with the rejected rules, and
 a not-found exception. A screen catches those with a filtered `catch when` and renders the message
-inline. Everything else reaches the layout error boundary and is rendered generically.
+inline. In the supported Server profile, everything else reaches the global interactive layout
+error boundary and is rendered generically. The boundary recovers after navigation or an explicit
+retry. It covers lifecycle, rendering and event failures in the interactive component tree; HTTP
+failures and detached work require their own mechanisms. The experimental Auto page keeps a local
+interactive boundary because its ancestor layout is not globally interactive.
+
+Length constraints that are defined after normalization use `TrimmedStringLengthAttribute`.
+The attribute trims only to measure the maximum and leaves required/blank validation to
+`RequiredAttribute`; persistence performs the actual normalization.
 
 `TimeProvider` is injected wherever the current instant is read.
 

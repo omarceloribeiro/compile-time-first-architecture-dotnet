@@ -143,5 +143,8 @@ Before this direction becomes supported, decide and validate:
 - equivalent tenant-isolation and authorization tests across every HTTP read and write path.
 
 Until those decisions are made, Interactive Server remains the supported implementation path and the
-existing Interactive Auto/OData code remains an experimental reference rather than a template to
-replicate automatically.
+existing `CompileTimeFirst.Sample.BlazorAuto` and
+`CompileTimeFirst.Sample.BlazorAuto.Client` projects remain an experimental reference rather than a
+template to replicate automatically. No Full WebAssembly project exists in v0.5. A future API may be
+a sibling presentation project sharing Domain, Application, Data and ReadModel; it does not need to
+be hosted inside the supported Blazor Server process merely because ASP.NET Core can map both.

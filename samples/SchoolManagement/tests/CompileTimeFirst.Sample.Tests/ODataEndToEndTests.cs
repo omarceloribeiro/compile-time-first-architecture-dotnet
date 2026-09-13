@@ -1,11 +1,13 @@
 using System.Net;
+using System.Security.Claims;
 using System.Text.RegularExpressions;
 using CompileTimeFirst.Sample.Data;
 using CompileTimeFirst.Sample.Domain;
 using CompileTimeFirst.Sample.ReadModel;
-using CompileTimeFirst.Sample.Web.Client.OData;
+using CompileTimeFirst.Sample.BlazorAuto.Client.OData;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,7 +18,7 @@ namespace CompileTimeFirst.Sample.Tests;
 public sealed partial class ODataEndToEndTests
 {
     [Fact]
-    public async Task Anonymous_requests_are_denied()
+    public async Task Anonymous_odata_response_is_status_only()
     {
         using var factory = CreateFactory();
         using var httpClient = factory.CreateClient(new WebApplicationFactoryClientOptions
@@ -25,28 +27,13 @@ public sealed partial class ODataEndToEndTests
             BaseAddress = new Uri("https://localhost/")
         });
 
-        var pageResponse = await httpClient.GetAsync("questions");
         var odataResponse = await httpClient.GetAsync("odata/Subjects");
+        var body = await odataResponse.Content.ReadAsStringAsync();
 
-        Assert.Equal(HttpStatusCode.Redirect, pageResponse.StatusCode);
-        Assert.Equal("/login", pageResponse.Headers.Location?.OriginalString);
         Assert.Equal(HttpStatusCode.Unauthorized, odataResponse.StatusCode);
-    }
-
-    [Fact]
-    public async Task Account_one_renders_only_north_school_editor_data()
-    {
-        using var factory = CreateFactory();
-        using var httpClient = CreateClient(factory);
-        await SignInAsync(httpClient, "account1");
-
-        var html = await httpClient.GetStringAsync("questions");
-
-        Assert.Contains("Create Question", html, StringComparison.Ordinal);
-        Assert.Contains("Computing", html, StringComparison.Ordinal);
-        Assert.Contains("Grade 5", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("Geography", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("Grade 9", html, StringComparison.Ordinal);
+        Assert.Null(odataResponse.Headers.Location);
+        Assert.Null(odataResponse.Content.Headers.ContentType);
+        Assert.Equal(string.Empty, body);
     }
 
     [Fact]
@@ -63,6 +50,33 @@ public sealed partial class ODataEndToEndTests
             db.Subjects.OrderBy(x => x.Name).ThenBy(x => x.Id));
 
         Assert.Equal(["Geography"], subjects.Select(x => x.Name));
+    }
+
+    [Fact]
+    public async Task Persisted_tenant_claim_cannot_override_the_account_tenant()
+    {
+        using var factory = CreateFactory();
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<SchoolUser>>();
+            var user = await userManager.FindByNameAsync("account1");
+            Assert.NotNull(user);
+            var result = await userManager.AddClaimAsync(
+                user,
+                new Claim(SchoolClaimTypes.TenantId, SouthTenantId.ToString("D")));
+            Assert.True(result.Succeeded);
+        }
+
+        using var httpClient = CreateClient(factory);
+        await SignInAsync(httpClient, "account1");
+        var readFactory = new ODataReadSchoolDbFactory(new Uri(httpClient.BaseAddress!, "odata/"));
+        var executor = new ODataReadQueryExecutor(httpClient);
+
+        await using var db = await readFactory.CreateAsync();
+        var subjects = await executor.ToListAsync(
+            db.Subjects.OrderBy(x => x.Name).ThenBy(x => x.Id));
+
+        Assert.Equal(["Computing"], subjects.Select(x => x.Name));
     }
 
     [Fact]
@@ -118,6 +132,28 @@ public sealed partial class ODataEndToEndTests
     }
 
     [Fact]
+    public async Task Missing_antiforgery_is_a_bad_request_for_auto_login_and_logout()
+    {
+        using var factory = CreateFactory();
+        using var httpClient = CreateClient(factory, allowAutoRedirect: false);
+
+        var loginResponse = await httpClient.PostAsync(
+            "account/login",
+            Form(("username", "account1"), ("password", "Sample123!")));
+        var loginBody = await loginResponse.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.BadRequest, loginResponse.StatusCode);
+        Assert.DoesNotContain("AntiforgeryValidationException", loginBody, StringComparison.Ordinal);
+
+        await SignInAsync(httpClient, "account1");
+        var logoutResponse = await httpClient.PostAsync("account/logout", Form());
+        var logoutBody = await logoutResponse.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.BadRequest, logoutResponse.StatusCode);
+        Assert.DoesNotContain("AntiforgeryValidationException", logoutBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Interactive_auto_boundary_does_not_render_infrastructure_exception_message()
     {
         const string sensitiveMessage = "database password was secret";
@@ -136,7 +172,7 @@ public sealed partial class ODataEndToEndTests
     }
 
     private static HttpClient CreateClient(
-        WebApplicationFactory<Program> factory,
+        WebApplicationFactory<BlazorAutoEntryPoint> factory,
         bool allowAutoRedirect = true) =>
         factory.CreateClient(new WebApplicationFactoryClientOptions
         {
@@ -177,7 +213,7 @@ public sealed partial class ODataEndToEndTests
     [GeneratedRegex("name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"")]
     private static partial Regex AntiforgeryTokenRegex();
 
-    private static async Task AddSubjectsAsync(WebApplicationFactory<Program> factory)
+    private static async Task AddSubjectsAsync(WebApplicationFactory<BlazorAutoEntryPoint> factory)
     {
         await using var scope = factory.Services.CreateAsyncScope();
         var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<SchoolDbContext>>();
@@ -190,10 +226,12 @@ public sealed partial class ODataEndToEndTests
     }
 
     private static readonly Guid NorthTenantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid SouthTenantId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
-    private static WebApplicationFactory<Program> CreateFactory(Action<IServiceCollection>? configure = null)
+    private static WebApplicationFactory<BlazorAutoEntryPoint> CreateFactory(
+        Action<IServiceCollection>? configure = null)
     {
-        return new WebApplicationFactory<Program>()
+        return new WebApplicationFactory<BlazorAutoEntryPoint>()
             .WithWebHostBuilder(builder =>
             {
                 builder.UseEnvironment("Development");

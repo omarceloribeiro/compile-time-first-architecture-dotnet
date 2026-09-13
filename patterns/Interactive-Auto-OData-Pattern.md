@@ -41,8 +41,10 @@ provider remains optional and must be enabled only after the required spike.
 
 ## Validated sample boundary
 
-The School Management sample includes `/auto-subjects`, a shared Interactive Auto component and
-component. The server resolves an EF Core read provider and the WebAssembly client resolves a
+The School Management sample includes `/auto-subjects`, one Interactive Auto component split only
+to place its client-executed content below an interactive error boundary. It is physically isolated in the `CompileTimeFirst.Sample.BlazorAuto` host and
+`CompileTimeFirst.Sample.BlazorAuto.Client` browser project; the supported Server host does not
+reference either. The Auto server resolves an EF Core read provider and the WebAssembly client resolves a
 Microsoft.OData.Client provider. Both execute the same portable `Where` and `OrderBy` query through
 `IReadQueryExecutor`. In WebAssembly, Microsoft.OData.Client translates LINQ into the OData URI and
 the browser `HttpClient` asynchronously downloads and materializes the JSON response. This avoids
