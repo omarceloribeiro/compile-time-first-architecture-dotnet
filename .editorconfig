@@ -27,6 +27,8 @@ dotnet_style_readonly_field = true:warning
 dotnet_diagnostic.CTFA001.severity = error
 dotnet_diagnostic.CTFA002.severity = error
 dotnet_diagnostic.CTFA003.severity = error
+dotnet_diagnostic.CTFA004.severity = error
+dotnet_diagnostic.CTFA005.severity = error
 
 [*.razor]
 charset = utf-8

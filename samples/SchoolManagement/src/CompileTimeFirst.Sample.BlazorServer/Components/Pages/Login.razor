@@ -1,0 +1,44 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@layout LoginLayout
+
+<PageTitle>Sign in</PageTitle>
+
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4">
+        <h1>Sign in</h1>
+        <p class="text-muted">The signed-in account determines the active school.</p>
+
+        @if (Error == "invalid")
+        {
+            <div class="alert alert-danger" role="alert">Invalid username or password.</div>
+        }
+
+        <form method="post" action="/account/login">
+            <AntiforgeryToken />
+            <div class="mb-3">
+                <label for="username" class="form-label">Username</label>
+                <input id="username" name="username" class="form-control" autocomplete="username" required autofocus />
+            </div>
+            <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <input id="password" name="password" type="password" class="form-control"
+                       autocomplete="current-password" required />
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Sign in</button>
+        </form>
+
+        <div class="card mt-4">
+            <div class="card-body small">
+                <strong>Sample accounts</strong>
+                <div><code>account1</code> / <code>Sample123!</code> — North School</div>
+                <div><code>account2</code> / <code>Sample123!</code> — South School</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? Error { get; set; }
+}

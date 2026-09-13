@@ -9,14 +9,12 @@ public sealed class ReadQueryExecutorTests
     [Fact]
     public async Task Ef_executor_supports_all_contract_terminals()
     {
-        var options = new DbContextOptionsBuilder<SchoolDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-        await using var db = new SchoolDbContext(options);
+        await using var database = await TestDatabase.CreateAsync();
+        await using var db = await database.WriteFactory.CreateDbContextAsync();
         db.Grades.AddRange(
-            new Grade { Id = Guid.NewGuid(), Name = "One", Order = 1 },
-            new Grade { Id = Guid.NewGuid(), Name = "Two", Order = 2 },
-            new Grade { Id = Guid.NewGuid(), Name = "Three", Order = 3 });
+            new Grade(Guid.NewGuid(), TestDatabase.TenantA, "One", 1),
+            new Grade(Guid.NewGuid(), TestDatabase.TenantA, "Two", 2),
+            new Grade(Guid.NewGuid(), TestDatabase.TenantA, "Three", 3));
         await db.SaveChangesAsync();
 
         var values = db.Grades.OrderBy(x => x.Order).Select(x => x.Order);

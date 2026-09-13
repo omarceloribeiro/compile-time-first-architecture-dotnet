@@ -2,7 +2,9 @@
   <ItemGroup>
     <ProjectReference Include="../CompileTimeFirst.Sample.Domain/CompileTimeFirst.Sample.Domain.csproj" />
     <ProjectReference Include="../CompileTimeFirst.Sample.ReadModel/CompileTimeFirst.Sample.ReadModel.csproj" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
   </ItemGroup>
 </Project>

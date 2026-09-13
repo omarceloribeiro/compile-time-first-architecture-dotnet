@@ -1,35 +1,43 @@
-# School Management architecture rules
+# School Management sample — local rules
 
-## Well-Known First
+The architecture rules live at the repository root: [`../../AGENTS.md`](../../AGENTS.md),
+[`../../Architecture.md`](../../Architecture.md), [`../../docs/ANALYZER-RULES.md`](../../docs/ANALYZER-RULES.md)
+and [`../../patterns/`](../../patterns/). This file records only what is specific to this sample, so
+there is one place to change when a rule changes.
 
-- Use public .NET, ASP.NET Core, EF Core, LINQ, HTTP/OData and Blazor APIs directly when adequate.
-- Do not add mechanical repositories, loggers, HTTP gateways or component wrappers that only rename
-  those APIs.
-- Product-specific abstractions are valid when they add product meaning, policy, a concrete
-  lifecycle/provider boundary or necessary external isolation.
-- `IReadQueryExecutor` owns the actual EF/OData async terminal boundary while query composition stays
-  on public `IQueryable<T>` and LINQ.
-- Official documentation and the installed package version are authoritative.
+## Concrete names
 
-## UI read/write boundary
+| Role | Type in this sample |
+|---|---|
+| Write context | `SchoolDbContext` |
+| Read context | `ReadOnlySchoolDbContext` |
+| Read surface | `IReadSchoolDb`, `IReadSchoolDbScope` |
+| Read scope factory | `IReadSchoolDbFactory` |
+| Read terminals | `IReadQueryExecutor` |
+| Shared model configuration | `DomainModelConfiguration` |
 
-- ViewModels and Blazor components never inject `SchoolDbContext` or its factory.
-- Incidental reads use `IReadSchoolDbFactory` and terminate through `IReadQueryExecutor`.
-- Dropdowns use `ToListAsync`; data grids, data tables, result lists, autocompletes and histories use `ToPageAsync`.
-- Uniqueness, count and existence use `SingleOrDefaultAsync`, `CountAsync` and `AnyAsync` through `IReadQueryExecutor`.
-- Every paged query defines deterministic ordering and a unique tie-breaker when its primary sort key is not unique.
-- The spec selects the control. ViewModels do not invent thresholds or adaptive behavior.
-- Queries and read scopes are local to one operation and never become component state.
-- Visual components receive materialized values, never a live `IQueryable` provider.
-- Writes invoke a specific `IUseCase`; ViewModels never persist through the read store.
-- Primary-constructor, direct-EF and escaped-read-state violations are compile-time errors from CTFA001–005 in both Web and Web.Client.
+## Composition roots
 
-## Dependency injection
+Three, deliberately:
 
-- Registrations are explicit.
-- Console and Web enable `ValidateOnBuild` and `ValidateScopes`.
-- The normal build executes `--validate-di` and resolves every `IUseCase`, `IViewModel`, Blazor
-  constructor, `[Inject]` property and keyed service.
+- `CompileTimeFirst.Sample.BlazorServer` is the supported global Interactive Server profile;
+- `CompileTimeFirst.Sample.BlazorAuto` is the experimental Auto/OData host and validates its
+  `CompileTimeFirst.Sample.BlazorAuto.Client` browser service graph;
+- `CompileTimeFirst.Sample.Console` proves the architecture does not assume a UI and runs the same
+  use cases with `ValidateBlazorComponents: false`.
 
-See `../../docs/DEPENDENCY-INJECTION-VALIDATION.md` for the canonical DI documentation and
-`EXAMPLES-READ-ONLY-ARCHITECTURE.md` for examples.
+## Experimental surface
+
+`CompileTimeFirst.Sample.BlazorAuto/`, `CompileTimeFirst.Sample.BlazorAuto.Client/` and
+`AutoSubjects.razor` belong to the experimental Interactive Auto path. The supported Server project
+must not reference them or their OData/WebAssembly packages. See the sample README and ADR 0009
+before touching them.
+
+## Storage
+
+Each executable uses a uniquely named SQLite in-memory database. One dedicated keeper connection
+preserves that database for the process lifetime, but it is never handed to a `DbContext`. Factories
+receive the connection string so every operation opens and owns an independent connection to the
+same ephemeral database. SQLite is a relational provider that enforces the configured tenant
+foreign keys, so the tests demonstrate the composite-key guarantee instead of merely inspecting EF
+metadata. This remains a demonstration configuration, not production persistence.

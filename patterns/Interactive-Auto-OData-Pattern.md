@@ -1,7 +1,16 @@
-# Interactive Auto + OData Pattern
+# Interactive Auto + OData Pattern (Experimental)
+
+> **Status: experimental.** Interactive Server is the supported path. Do not create files, classes,
+> endpoints or render-mode attributes for this pattern unless a feature specification explicitly
+> requests Interactive Auto. See ADR 0009 and "Experimental render modes" in `AGENTS.md`.
+>
+> Known gaps: generated-client metadata lifecycle, OData exposure beyond the sample's small read
+> surface, and trimming and AOT. The sample validates same-origin Identity authentication and tenant
+> propagation, but that does not make the path production-ready.
+
 
 ## Goal
-Allow a shared ViewModel to compose the same portable LINQ query in Interactive Server and Interactive WebAssembly.
+Allow one component to compose the same portable LINQ query in Interactive Server and Interactive WebAssembly.
 
 ## Providers
 
@@ -32,16 +41,19 @@ provider remains optional and must be enabled only after the required spike.
 
 ## Validated sample boundary
 
-The School Management sample includes `/auto-subjects`, a shared Interactive Auto component and
-ViewModel. The server resolves an EF Core read provider and the WebAssembly client resolves a
+The School Management sample includes `/auto-subjects`, one Interactive Auto component split only
+to place its client-executed content below an interactive error boundary. It is physically isolated in the `CompileTimeFirst.Sample.BlazorAuto` host and
+`CompileTimeFirst.Sample.BlazorAuto.Client` browser project; the supported Server host does not
+reference either. The Auto server resolves an EF Core read provider and the WebAssembly client resolves a
 Microsoft.OData.Client provider. Both execute the same portable `Where` and `OrderBy` query through
 `IReadQueryExecutor`. In WebAssembly, Microsoft.OData.Client translates LINQ into the OData URI and
 the browser `HttpClient` asynchronously downloads and materializes the JSON response. This avoids
 the synchronous response-enumeration path that is incompatible with the single-threaded browser runtime.
 
-The spike validates provider switching, typed LINQ translation, async execution, query-option limits
-and DI hydration. Authentication, tenant filtering, generated-client metadata lifecycle and AOT
-publishing remain explicitly outside the spike.
+The spike validates provider switching, typed LINQ translation, async execution, query-option
+limits, DI hydration, same-origin Identity authentication and tenant filtering across the HTTP
+boundary. Generated-client metadata lifecycle and AOT publishing remain explicitly outside the
+spike.
 
 Paged controls use `ToPageAsync`. The client sends `$count`, `$skip` and `$top`, while the server
 executor uses EF Core `CountAsync`, `Skip`, `Take` and `ToListAsync`. In either runtime, the query and

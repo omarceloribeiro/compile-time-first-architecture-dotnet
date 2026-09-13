@@ -1,4 +1,5 @@
-using CompileTimeFirst.Sample.Web.Client.OData;
+using CompileTimeFirst.Sample.BlazorAuto.Client.OData;
+using CompileTimeFirst.Sample.ReadModel;
 using System.Net;
 using System.Text;
 
@@ -6,6 +7,13 @@ namespace CompileTimeFirst.Sample.Tests;
 
 public sealed class ODataQueryTests
 {
+    [Fact]
+    public void Portable_read_surface_does_not_expose_tenants()
+    {
+        Assert.Null(typeof(IReadSchoolDb).GetProperty("Tenants"));
+        Assert.Null(typeof(IReadSchoolDbScope).GetProperty("Tenants"));
+    }
+
     [Fact]
     public async Task Portable_subject_query_translates_filter_and_orderby()
     {

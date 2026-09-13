@@ -101,7 +101,7 @@ boundaries:
 `IReadDb` and `IReadDbFactory` do not exist merely to rename an EF Core `DbContext` and its factory.
 The same feature may receive an EF-backed read surface in Interactive Server and a remote/OData-backed
 surface in WebAssembly. The private contracts keep provider creation and lifetime out of the
-ViewModel while preserving `IQueryable<T>` and standard LINQ as the visible composition language.
+component while preserving `IQueryable<T>` and standard LINQ as the visible composition language.
 
 Replacing them only in Server code with:
 
@@ -304,7 +304,7 @@ Therefore:
 > vendor independence.
 
 Domain, Application, use cases, security rules and durable contracts remain protected. Razor,
-component-library calls, visual state and screen-specific ViewModels may be regenerated or migrated
+component-library calls, visual state and screen-specific components may be regenerated or migrated
 with the UI.
 
 ## The role of a design system

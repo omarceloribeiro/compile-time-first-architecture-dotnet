@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+using CompileTimeFirst.Sample.Application.Questions;
 using CompileTimeFirst.Sample.Data;
 using CompileTimeFirst.Sample.Domain;
 using Microsoft.EntityFrameworkCore;
@@ -13,14 +15,23 @@ public interface ICreateQuestionOptionUseCase : IUseCase
 
 public sealed record CreateQuestionOptionRequest(
     Guid QuestionId,
+    [property: Required(ErrorMessage = "Option text is required.")]
+    [property: TrimmedStringLength(
+        QuestionShape.MaxOptionTextLength,
+        ErrorMessage = "Option text must contain at most 1,000 characters.")]
     string Text,
     bool IsCorrect,
+    [property: Range(
+        1,
+        QuestionShape.MaxOptions,
+        ErrorMessage = "Option order must be between 1 and 100.")]
     int Order);
 
 public sealed record CreateQuestionOptionResult(Guid OptionId);
 
 public sealed class CreateQuestionOptionUseCase(
-    IDbContextFactory<SchoolDbContext> contextFactory)
+    IDbContextFactory<SchoolDbContext> contextFactory,
+    ICurrentUser currentUser)
     : UseCaseBase<CreateQuestionOptionRequest, CreateQuestionOptionResult>,
       ICreateQuestionOptionUseCase
 {
@@ -28,8 +39,6 @@ public sealed class CreateQuestionOptionUseCase(
         CreateQuestionOptionRequest request,
         CancellationToken cancellationToken)
     {
-        Validate(request);
-
         await using var db = await contextFactory.CreateDbContextAsync(cancellationToken);
 
         var question = await db.Questions
@@ -38,7 +47,7 @@ public sealed class CreateQuestionOptionUseCase(
 
         if (question is null)
         {
-            throw new InvalidOperationException("Question not found.");
+            throw new EntityNotFoundException("Question not found.");
         }
 
         var orderAlreadyExists = question.Options
@@ -46,18 +55,18 @@ public sealed class CreateQuestionOptionUseCase(
 
         if (orderAlreadyExists)
         {
-            throw new InvalidOperationException($"An option with order '{request.Order}' already exists for this question.");
+            throw new UseCaseValidationException($"An option with order '{request.Order}' already exists for this question.");
         }
 
         // Validate business rules based on question type
         if (question.Type == QuestionType.TrueOrFalse && question.Options.Count >= 2)
         {
-            throw new InvalidOperationException("True or False questions can only have 2 options.");
+            throw new UseCaseValidationException("True or False questions can only have 2 options.");
         }
 
         if (question.Type == QuestionType.OpenText)
         {
-            throw new InvalidOperationException("Open text questions cannot have options.");
+            throw new UseCaseValidationException("Open text questions cannot have options.");
         }
 
         if (question.Type == QuestionType.SingleChoice && request.IsCorrect)
@@ -65,35 +74,21 @@ public sealed class CreateQuestionOptionUseCase(
             var hasCorrectAnswer = question.Options.Any(o => o.IsCorrect);
             if (hasCorrectAnswer)
             {
-                throw new InvalidOperationException("Single choice questions can only have one correct answer.");
+                throw new UseCaseValidationException("Single choice questions can only have one correct answer.");
             }
         }
 
-        var option = new QuestionOption
-        {
-            Id = Guid.NewGuid(),
-            QuestionId = request.QuestionId,
-            Text = request.Text.Trim(),
-            IsCorrect = request.IsCorrect,
-            Order = request.Order
-        };
+        var option = new QuestionOption(
+            Guid.NewGuid(),
+            RequireTenant(currentUser),
+            request.QuestionId,
+            request.Text.Trim(),
+            request.IsCorrect,
+            request.Order);
 
         db.QuestionOptions.Add(option);
         await db.SaveChangesAsync(cancellationToken);
 
         return new CreateQuestionOptionResult(option.Id);
-    }
-
-    private static void Validate(CreateQuestionOptionRequest request)
-    {
-        if (string.IsNullOrWhiteSpace(request.Text) || request.Text.Length > 1_000)
-        {
-            throw new ArgumentException("Option text must contain between 1 and 1,000 characters.");
-        }
-
-        if (request.Order < 1 || request.Order > 100)
-        {
-            throw new ArgumentException("Option order must be between 1 and 100.");
-        }
     }
 }

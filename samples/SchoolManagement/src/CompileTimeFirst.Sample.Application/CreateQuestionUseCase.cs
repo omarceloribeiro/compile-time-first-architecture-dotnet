@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using CompileTimeFirst.Sample.Data;
 using CompileTimeFirst.Sample.Domain;
 using Microsoft.EntityFrameworkCore;
@@ -12,17 +13,121 @@ public interface ICreateQuestionUseCase : IUseCase
 }
 
 public sealed record CreateQuestionRequest(
+    [property: Required(ErrorMessage = "Statement is required.")]
+    [property: TrimmedStringLength(
+        QuestionShape.MaxStatementLength,
+        ErrorMessage = "Statement must contain at most 4,000 characters.")]
     string Statement,
     Guid SubjectId,
     Guid GradeId,
+    [property: EnumDataType(typeof(QuestionType), ErrorMessage = "Question type is invalid.")]
     QuestionType Type,
-    IReadOnlyCollection<CreateQuestionOptionRequest> Options);
+    [property: Required(ErrorMessage = "Options are required.")]
+    IReadOnlyCollection<CreateQuestionOptionRequest> Options)
+    : IValidatableObject
+{
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        var optionsAreValid = true;
+        var index = 0;
+        foreach (var option in Options)
+        {
+            var results = new List<ValidationResult>();
+            if (!Validator.TryValidateObject(
+                    option,
+                    new ValidationContext(option),
+                    results,
+                    validateAllProperties: true))
+            {
+                optionsAreValid = false;
+                foreach (var result in results)
+                {
+                    yield return new ValidationResult(
+                        result.ErrorMessage,
+                        [$"Options[{index}]"]);
+                }
+            }
 
-public sealed record CreateQuestionOptionRequest(string Text, bool IsCorrect, int Order);
+            index++;
+        }
+
+        if (!optionsAreValid)
+        {
+            yield break;
+        }
+
+        if (Options.Select(x => x.Order).Distinct().Count() != Options.Count)
+        {
+            yield return new ValidationResult(
+                "Option orders must be unique within the question.",
+                [nameof(Options)]);
+        }
+
+        if (QuestionShape.AllowsCustomOptions(Type) &&
+            Options.Count < QuestionShape.MinObjectiveOptions)
+        {
+            yield return new ValidationResult(
+                "Objective questions require at least two options.",
+                [nameof(Options)]);
+        }
+
+        if (Type == QuestionType.SingleChoice && Options.Count(x => x.IsCorrect) != 1)
+        {
+            yield return new ValidationResult(
+                "Single-choice questions require exactly one correct option.",
+                [nameof(Options)]);
+        }
+
+        if (Type == QuestionType.MultipleChoice && Options.All(x => !x.IsCorrect))
+        {
+            yield return new ValidationResult(
+                "Multiple-choice questions require at least one correct option.",
+                [nameof(Options)]);
+        }
+
+        if (Type == QuestionType.TrueOrFalse)
+        {
+            var orderedOptions = Options
+                .OrderBy(x => x.Order)
+                .Select(x => new QuestionOptionDraft(x.Text.Trim(), x.IsCorrect, x.Order))
+                .ToArray();
+
+            if (!QuestionShape.MatchesTrueOrFalseShape(orderedOptions) ||
+                orderedOptions.Count(x => x.IsCorrect) != 1)
+            {
+                yield return new ValidationResult(
+                    "True-or-false questions require ordered True and False options and exactly one correct option.",
+                    [nameof(Options)]);
+            }
+        }
+
+        if (!QuestionShape.UsesOptions(Type) && Options.Count != 0)
+        {
+            yield return new ValidationResult(
+                "Open-text questions cannot contain options.",
+                [nameof(Options)]);
+        }
+    }
+}
+
+public sealed record CreateQuestionOptionRequest(
+    [property: Required(ErrorMessage = "Option text is required.")]
+    [property: TrimmedStringLength(
+        QuestionShape.MaxOptionTextLength,
+        ErrorMessage = "Option text must contain at most 1,000 characters.")]
+    string Text,
+    bool IsCorrect,
+    [property: Range(
+        1,
+        QuestionShape.MaxOptions,
+        ErrorMessage = "Option order must be between 1 and 100.")]
+    int Order);
 public sealed record CreateQuestionResult(Guid QuestionId);
 
 public sealed class CreateQuestionUseCase(
-    IDbContextFactory<SchoolDbContext> contextFactory)
+    IDbContextFactory<SchoolDbContext> contextFactory,
+    ICurrentUser currentUser,
+    TimeProvider timeProvider)
     : UseCaseBase<CreateQuestionRequest, CreateQuestionResult>,
       ICreateQuestionUseCase
 {
@@ -30,8 +135,6 @@ public sealed class CreateQuestionUseCase(
         CreateQuestionRequest request,
         CancellationToken cancellationToken)
     {
-        Validate(request);
-
         await using var db = await contextFactory.CreateDbContextAsync(cancellationToken);
 
         var referencesExist =
@@ -40,106 +143,26 @@ public sealed class CreateQuestionUseCase(
 
         if (!referencesExist)
         {
-            throw new InvalidOperationException("Subject or grade is invalid.");
+            throw new EntityNotFoundException("Subject or grade is invalid.");
         }
 
-        var question = new Question
+        var question = new Question(
+            Guid.NewGuid(),
+            RequireTenant(currentUser),
+            request.SubjectId,
+            request.GradeId,
+            request.Statement.Trim(),
+            request.Type,
+            timeProvider.GetUtcNow());
+
+        foreach (var option in request.Options.OrderBy(x => x.Order))
         {
-            Id = Guid.NewGuid(),
-            Statement = request.Statement.Trim(),
-            SubjectId = request.SubjectId,
-            GradeId = request.GradeId,
-            Type = request.Type,
-            CreatedAt = DateTimeOffset.UtcNow,
-            Options = request.Options
-                .OrderBy(x => x.Order)
-                .Select(x => new QuestionOption
-                {
-                    Id = Guid.NewGuid(),
-                    Text = x.Text.Trim(),
-                    IsCorrect = x.IsCorrect,
-                    Order = x.Order
-                })
-                .ToList()
-        };
+            question.AddOption(option.Text.Trim(), option.IsCorrect, option.Order);
+        }
 
         db.Questions.Add(question);
         await db.SaveChangesAsync(cancellationToken);
 
         return new CreateQuestionResult(question.Id);
-    }
-
-    private static void Validate(CreateQuestionRequest request)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-
-        var statement = request.Statement?.Trim();
-        if (string.IsNullOrWhiteSpace(statement) || statement.Length > 4_000)
-        {
-            throw new ArgumentException("Statement must contain between 1 and 4,000 characters.");
-        }
-
-        if (!Enum.IsDefined(request.Type))
-        {
-            throw new ArgumentException("Question type is invalid.");
-        }
-
-        ArgumentNullException.ThrowIfNull(request.Options);
-
-        foreach (var option in request.Options)
-        {
-            var text = option.Text?.Trim();
-            if (string.IsNullOrWhiteSpace(text) || text.Length > 1_000)
-            {
-                throw new ArgumentException("Option text must contain between 1 and 1,000 characters.");
-            }
-
-            if (option.Order is < 1 or > 100)
-            {
-                throw new ArgumentException("Option order must be between 1 and 100.");
-            }
-        }
-
-        if (request.Options.Select(x => x.Order).Distinct().Count() != request.Options.Count)
-        {
-            throw new ArgumentException("Option orders must be unique within the question.");
-        }
-
-        if (request.Type is QuestionType.SingleChoice or QuestionType.MultipleChoice &&
-            request.Options.Count < 2)
-        {
-            throw new ArgumentException("Objective questions require at least two options.");
-        }
-
-        if (request.Type == QuestionType.SingleChoice && request.Options.Count(x => x.IsCorrect) != 1)
-        {
-            throw new ArgumentException("Single-choice questions require exactly one correct option.");
-        }
-
-        if (request.Type == QuestionType.MultipleChoice && request.Options.All(x => !x.IsCorrect))
-        {
-            throw new ArgumentException("Multiple-choice questions require at least one correct option.");
-        }
-
-        if (request.Type == QuestionType.TrueOrFalse)
-        {
-            var orderedOptions = request.Options.OrderBy(x => x.Order).ToArray();
-            var hasExpectedOptions = orderedOptions.Length == 2 &&
-                orderedOptions[0].Order == 1 &&
-                orderedOptions[0].Text.Trim().Equals("True", StringComparison.OrdinalIgnoreCase) &&
-                orderedOptions[1].Order == 2 &&
-                orderedOptions[1].Text.Trim().Equals("False", StringComparison.OrdinalIgnoreCase);
-
-            if (!hasExpectedOptions || orderedOptions.Count(x => x.IsCorrect) != 1)
-            {
-                throw new ArgumentException(
-                    "True-or-false questions require ordered True and False options and exactly one correct option.");
-            }
-        }
-
-        if (request.Type == QuestionType.OpenText && request.Options.Count != 0)
-        {
-            throw new ArgumentException("Open-text questions cannot contain options.");
-        }
     }
 }

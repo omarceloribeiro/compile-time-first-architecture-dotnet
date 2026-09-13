@@ -16,7 +16,7 @@ Subjects = await executor.ToListAsync(
     cancellationToken);
 ```
 
-The ViewModel owns the projection. It may change with the screen.
+The component owns the projection. It may change with the screen.
 
 ## Data grid, data table, result list, autocomplete or history
 
@@ -65,10 +65,10 @@ total count. Do not pass `query` or `db` to the component.
 
 The specification chooses the control. Do not infer a different control from an expected row count.
 Scalar terminals are also called only through `IReadQueryExecutor`, never through provider-specific
-EF Core extensions in a ViewModel or component.
+EF Core extensions in a page or component.
 
 The read store exposes approved `IQueryable<T>` surfaces and cannot save changes. `IQueryable<T>`,
-the read scope and DbContext never become ViewModel or component state.
+the read scope and DbContext never become component state.
 
 ## Well-Known First
 

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\CompileTimeFirst.Sample.Application\CompileTimeFirst.Sample.Application.csproj" />
+    <ProjectReference Include="..\CompileTimeFirst.Sample.Data\CompileTimeFirst.Sample.Data.csproj" />
+    <!-- Analyzer para garantir a arquitetura Read-Only no UI -->
+    <ProjectReference Include="..\CompileTimeFirst.Sample.Analyzers\CompileTimeFirst.Sample.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <ValidateDependencyInjectionOnBuild>true</ValidateDependencyInjectionOnBuild>
+  </PropertyGroup>
+
+</Project>

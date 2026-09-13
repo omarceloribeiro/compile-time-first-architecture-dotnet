@@ -1,0 +1,33 @@
+@page "/auto-subjects"
+@attribute [Authorize]
+@rendermode InteractiveAuto
+
+<PageTitle>Interactive Auto OData</PageTitle>
+
+<h1>Interactive Auto/OData</h1>
+
+@* This shell/content split is intentional while the app uses per-page interactivity. MainLayout is
+   static in that model, so its ErrorBoundary only covers static SSR. The interactive boundary must
+   live inside this InteractiveAuto root and wrap a descendant; it cannot catch lifecycle or event
+   exceptions thrown by the same component that declares it. Revisit the split if Routes adopts a
+   global interactive render mode and the layout boundary becomes interactive. *@
+<ErrorBoundary @ref="errorBoundary">
+    <ChildContent>
+        <AutoSubjectsContent />
+    </ChildContent>
+    <ErrorContent>
+        <div class="alert alert-danger" role="alert">
+            <h5 class="alert-heading">Something went wrong</h5>
+            <p>The subjects could not be loaded. The error has been logged.</p>
+            <button type="button" class="btn btn-outline-danger btn-sm" @onclick="Recover">
+                Try again
+            </button>
+        </div>
+    </ErrorContent>
+</ErrorBoundary>
+
+@code {
+    private ErrorBoundary? errorBoundary;
+
+    private void Recover() => errorBoundary?.Recover();
+}

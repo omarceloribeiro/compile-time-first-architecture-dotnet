@@ -1,11 +1,18 @@
 using CompileTimeFirst.Sample.Domain;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace CompileTimeFirst.Sample.Data;
 
 public sealed class SchoolDbContext(DbContextOptions<SchoolDbContext> options)
-    : DbContext(options)
+    : IdentityDbContext<SchoolUser, IdentityRole<Guid>, Guid>(options), ITenantScope
 {
+    /// <summary>Assigned by the factory that creates this context, once per operation.</summary>
+    public Guid? TenantId { get; set; }
+
+    public DbSet<Tenant> Tenants => Set<Tenant>();
+
     public DbSet<Subject> Subjects => Set<Subject>();
     public DbSet<Grade> Grades => Set<Grade>();
     public DbSet<Question> Questions => Set<Question>();
@@ -13,17 +20,13 @@ public sealed class SchoolDbContext(DbContextOptions<SchoolDbContext> options)
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        ArgumentNullException.ThrowIfNull(modelBuilder);
+        base.OnModelCreating(modelBuilder);
+        DomainModelConfiguration.Configure(modelBuilder, this);
 
-        modelBuilder.Entity<Subject>().HasKey(x => x.Id);
-        modelBuilder.Entity<Grade>().HasKey(x => x.Id);
-        modelBuilder.Entity<Question>().HasKey(x => x.Id);
-        modelBuilder.Entity<QuestionOption>().HasKey(x => x.Id);
-
-        modelBuilder.Entity<Question>()
-            .HasMany(x => x.Options)
-            .WithOne()
-            .HasForeignKey(x => x.QuestionId)
-            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SchoolUser>()
+            .HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(user => user.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

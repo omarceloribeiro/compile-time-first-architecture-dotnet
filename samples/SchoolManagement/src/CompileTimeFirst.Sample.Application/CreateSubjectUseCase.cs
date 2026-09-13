@@ -1,4 +1,6 @@
+using System.ComponentModel.DataAnnotations;
 using CompileTimeFirst.Sample.Data;
+using CompileTimeFirst.Sample.Domain;
 using Microsoft.EntityFrameworkCore;
 
 namespace CompileTimeFirst.Sample.Application.Subjects;
@@ -10,11 +12,15 @@ public interface ICreateSubjectUseCase : IUseCase
         CancellationToken cancellationToken = default);
 }
 
-public sealed record CreateSubjectRequest(string Name);
+public sealed record CreateSubjectRequest(
+    [property: Required(ErrorMessage = "Subject name is required.")]
+    [property: StringLength(200, ErrorMessage = "Subject name must contain at most 200 characters.")]
+    string Name);
 public sealed record CreateSubjectResult(Guid SubjectId);
 
 public sealed class CreateSubjectUseCase(
-    IDbContextFactory<SchoolDbContext> contextFactory)
+    IDbContextFactory<SchoolDbContext> contextFactory,
+    ICurrentUser currentUser)
     : UseCaseBase<CreateSubjectRequest, CreateSubjectResult>,
       ICreateSubjectUseCase
 {
@@ -22,8 +28,6 @@ public sealed class CreateSubjectUseCase(
         CreateSubjectRequest request,
         CancellationToken cancellationToken)
     {
-        Validate(request);
-
         await using var db = await contextFactory.CreateDbContextAsync(cancellationToken);
 
         var nameAlreadyExists = await db.Subjects
@@ -31,27 +35,14 @@ public sealed class CreateSubjectUseCase(
 
         if (nameAlreadyExists)
         {
-            throw new InvalidOperationException($"An active subject with name '{request.Name}' already exists.");
+            throw new UseCaseValidationException($"An active subject with name '{request.Name}' already exists.");
         }
 
-        var subject = new Domain.Subject
-        {
-            Id = Guid.NewGuid(),
-            Name = request.Name.Trim(),
-            IsActive = true
-        };
+        var subject = new Domain.Subject(Guid.NewGuid(), RequireTenant(currentUser), request.Name.Trim());
 
         db.Subjects.Add(subject);
         await db.SaveChangesAsync(cancellationToken);
 
         return new CreateSubjectResult(subject.Id);
-    }
-
-    private static void Validate(CreateSubjectRequest request)
-    {
-        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 200)
-        {
-            throw new ArgumentException("Subject name must contain between 1 and 200 characters.");
-        }
     }
 }

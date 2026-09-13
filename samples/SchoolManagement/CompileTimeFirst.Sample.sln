@@ -13,13 +13,15 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CompileTimeFirst.Sample.Con
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CompileTimeFirst.Sample.Web", "src\CompileTimeFirst.Sample.Web\CompileTimeFirst.Sample.Web.csproj", "{26C0A4E8-A0F6-46DC-B90A-96D5531C20F7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CompileTimeFirst.Sample.BlazorServer", "src\CompileTimeFirst.Sample.BlazorServer\CompileTimeFirst.Sample.BlazorServer.csproj", "{26C0A4E8-A0F6-46DC-B90A-96D5531C20F7}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CompileTimeFirst.Sample.Analyzers", "src\CompileTimeFirst.Sample.Analyzers\CompileTimeFirst.Sample.Analyzers.csproj", "{2E39A677-635F-46C6-A83E-5C92C231023E}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CompileTimeFirst.Sample.ReadModel", "src\CompileTimeFirst.Sample.ReadModel\CompileTimeFirst.Sample.ReadModel.csproj", "{E5F5C555-FF6C-45A4-BC50-3194B0EEA105}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CompileTimeFirst.Sample.Web.Client", "src\CompileTimeFirst.Sample.Web.Client\CompileTimeFirst.Sample.Web.Client.csproj", "{F6F6C666-FF6C-45A4-BC50-3194B0EEA106}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CompileTimeFirst.Sample.BlazorAuto.Client", "src\CompileTimeFirst.Sample.BlazorAuto.Client\CompileTimeFirst.Sample.BlazorAuto.Client.csproj", "{F6F6C666-FF6C-45A4-BC50-3194B0EEA106}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CompileTimeFirst.Sample.BlazorAuto", "src\CompileTimeFirst.Sample.BlazorAuto\CompileTimeFirst.Sample.BlazorAuto.csproj", "{B8B8D888-FF6C-45A4-BC50-3194B0EEA108}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CompileTimeFirst.Sample.Tests", "tests\CompileTimeFirst.Sample.Tests\CompileTimeFirst.Sample.Tests.csproj", "{A7A7C777-FF6C-45A4-BC50-3194B0EEA107}"
 EndProject
@@ -129,6 +131,18 @@ Global
 		{F6F6C666-FF6C-45A4-BC50-3194B0EEA106}.Release|x64.Build.0 = Release|Any CPU
 		{F6F6C666-FF6C-45A4-BC50-3194B0EEA106}.Release|x86.ActiveCfg = Release|Any CPU
 		{F6F6C666-FF6C-45A4-BC50-3194B0EEA106}.Release|x86.Build.0 = Release|Any CPU
+		{B8B8D888-FF6C-45A4-BC50-3194B0EEA108}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B8B8D888-FF6C-45A4-BC50-3194B0EEA108}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B8B8D888-FF6C-45A4-BC50-3194B0EEA108}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B8B8D888-FF6C-45A4-BC50-3194B0EEA108}.Debug|x64.Build.0 = Debug|Any CPU
+		{B8B8D888-FF6C-45A4-BC50-3194B0EEA108}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B8B8D888-FF6C-45A4-BC50-3194B0EEA108}.Debug|x86.Build.0 = Debug|Any CPU
+		{B8B8D888-FF6C-45A4-BC50-3194B0EEA108}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B8B8D888-FF6C-45A4-BC50-3194B0EEA108}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B8B8D888-FF6C-45A4-BC50-3194B0EEA108}.Release|x64.ActiveCfg = Release|Any CPU
+		{B8B8D888-FF6C-45A4-BC50-3194B0EEA108}.Release|x64.Build.0 = Release|Any CPU
+		{B8B8D888-FF6C-45A4-BC50-3194B0EEA108}.Release|x86.ActiveCfg = Release|Any CPU
+		{B8B8D888-FF6C-45A4-BC50-3194B0EEA108}.Release|x86.Build.0 = Release|Any CPU
 		{A7A7C777-FF6C-45A4-BC50-3194B0EEA107}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A7A7C777-FF6C-45A4-BC50-3194B0EEA107}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A7A7C777-FF6C-45A4-BC50-3194B0EEA107}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -150,5 +164,6 @@ Global
 		{2E39A677-635F-46C6-A83E-5C92C231023E} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{E5F5C555-FF6C-45A4-BC50-3194B0EEA105} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{F6F6C666-FF6C-45A4-BC50-3194B0EEA106} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{B8B8D888-FF6C-45A4-BC50-3194B0EEA108} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal
