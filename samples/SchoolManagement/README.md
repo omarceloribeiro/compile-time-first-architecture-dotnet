@@ -34,7 +34,9 @@ All functional routes require the sample's ASP.NET Core Identity login:
 | `account2` | `Sample123!` | South School |
 
 These are development-only accounts in the ephemeral SQLite database. Logout followed by a new
-login is the only tenant switch; the browser never selects or submits a tenant identifier.
+login is the only tenant switch; the browser never selects or submits a tenant identifier. Server
+and Auto use different Identity cookie names, so both profiles can remain authenticated on
+`localhost` while they are compared side by side.
 
 ## Experimental surface
 

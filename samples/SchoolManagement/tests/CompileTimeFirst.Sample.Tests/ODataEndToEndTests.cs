@@ -53,6 +53,25 @@ public sealed partial class ODataEndToEndTests
     }
 
     [Fact]
+    public async Task Parallel_authenticated_odata_reads_complete_without_sqlite_connection_failures()
+    {
+        using var factory = CreateFactory();
+
+        var readTasks = Enumerable.Range(0, 20).Select(async _ =>
+        {
+            using var httpClient = CreateClient(factory);
+            await SignInAsync(httpClient, "account1");
+            using var response = await httpClient.GetAsync(
+                "odata/Subjects?$select=Id,Name&$orderby=Name,Id");
+            return response.StatusCode;
+        });
+
+        var statusCodes = await Task.WhenAll(readTasks);
+
+        Assert.All(statusCodes, statusCode => Assert.Equal(HttpStatusCode.OK, statusCode));
+    }
+
+    [Fact]
     public async Task Persisted_tenant_claim_cannot_override_the_account_tenant()
     {
         using var factory = CreateFactory();

@@ -22,15 +22,15 @@ internal sealed class TestDatabase : IAsyncDisposable
     public static readonly Guid TenantA = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     public static readonly Guid TenantB = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
-    private readonly SqliteConnection _connection;
+    private readonly SqliteConnection _keeperConnection;
 
     private TestDatabase(
-        SqliteConnection connection,
+        SqliteConnection keeperConnection,
         DbContextOptions<SchoolDbContext> writeOptions,
         DbContextOptions<ReadOnlySchoolDbContext> readOptions,
         TestCurrentUser currentUser)
     {
-        _connection = connection;
+        _keeperConnection = keeperConnection;
         WriteOptions = writeOptions;
         ReadOptions = readOptions;
         CurrentUser = currentUser;
@@ -50,18 +50,24 @@ internal sealed class TestDatabase : IAsyncDisposable
 
     public static async Task<TestDatabase> CreateAsync(Guid? tenantId = null)
     {
-        var connection = new SqliteConnection("Filename=:memory:");
-        await connection.OpenAsync();
+        var connectionString = new SqliteConnectionStringBuilder
+        {
+            DataSource = $"CompileTimeFirst.Tests.{Guid.NewGuid():N}",
+            Mode = SqliteOpenMode.Memory,
+            Cache = SqliteCacheMode.Shared
+        }.ToString();
+        var keeperConnection = new SqliteConnection(connectionString);
+        await keeperConnection.OpenAsync();
 
         var writeOptions = new DbContextOptionsBuilder<SchoolDbContext>()
-            .UseSqlite(connection)
+            .UseSqlite(connectionString)
             .Options;
         var readOptions = new DbContextOptionsBuilder<ReadOnlySchoolDbContext>()
-            .UseSqlite(connection)
+            .UseSqlite(connectionString)
             .Options;
 
         var currentUser = new TestCurrentUser(tenantId ?? TenantA);
-        var database = new TestDatabase(connection, writeOptions, readOptions, currentUser);
+        var database = new TestDatabase(keeperConnection, writeOptions, readOptions, currentUser);
 
         await using var seed = new SchoolDbContext(writeOptions);
         await seed.Database.EnsureCreatedAsync();
@@ -81,6 +87,6 @@ internal sealed class TestDatabase : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        await _connection.DisposeAsync();
+        await _keeperConnection.DisposeAsync();
     }
 }

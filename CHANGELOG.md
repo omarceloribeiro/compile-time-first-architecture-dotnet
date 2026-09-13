@@ -26,10 +26,11 @@ Architecture:
   contexts (ADR 0012). A hand-written tenant predicate in feature code is now forbidden, including a
   correct one; an unresolved tenant reads nothing;
 - moves the sample from the in-memory provider to SQLite, so the composite-key guarantee is enforced
-  and testable rather than configured and unproven;
+  and testable rather than configured and unproven. Each operation owns an independent connection
+  to a named ephemeral database preserved by a separate keeper connection;
 - replaces the tenant selector with ASP.NET Core Identity cookie authentication. Each seeded account
   has one tenant foreign key, projected by the server as `tenant_id` for both Blazor and same-origin
-  OData requests;
+  OData requests. Server and Auto use distinct cookie names so their sessions coexist on localhost;
 - reserves `tenant_id` as a server-owned claim, rejects missing, invalid or duplicate values, and
   captures the current principal independently for HTTP requests and Blazor circuits;
 - removes tenant enumeration from the portable read surface; an authorized tenant catalog remains

@@ -38,6 +38,20 @@ public sealed partial class BlazorServerEndToEndTests
     }
 
     [Fact]
+    public async Task Parallel_logins_complete_without_sqlite_connection_failures()
+    {
+        using var factory = CreateFactory();
+
+        var loginTasks = Enumerable.Range(0, 20).Select(async _ =>
+        {
+            using var httpClient = CreateClient(factory, allowAutoRedirect: false);
+            await SignInAsync(httpClient, "account1");
+        });
+
+        await Task.WhenAll(loginTasks);
+    }
+
+    [Fact]
     public async Task Missing_antiforgery_is_a_bad_request_for_server_login_and_logout()
     {
         using var factory = CreateFactory();

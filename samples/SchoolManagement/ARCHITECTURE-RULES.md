@@ -35,7 +35,9 @@ before touching them.
 
 ## Storage
 
-Both web hosts use SQLite in-memory with one open connection for their process lifetime. SQLite is a
-relational provider that enforces the configured tenant foreign keys, so the tests demonstrate the
-composite-key guarantee instead of merely inspecting EF metadata. The databases remain ephemeral
-and are not a production persistence configuration.
+Each executable uses a uniquely named SQLite in-memory database. One dedicated keeper connection
+preserves that database for the process lifetime, but it is never handed to a `DbContext`. Factories
+receive the connection string so every operation opens and owns an independent connection to the
+same ephemeral database. SQLite is a relational provider that enforces the configured tenant
+foreign keys, so the tests demonstrate the composite-key guarantee instead of merely inspecting EF
+metadata. This remains a demonstration configuration, not production persistence.

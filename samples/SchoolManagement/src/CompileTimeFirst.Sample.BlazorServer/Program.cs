@@ -25,16 +25,21 @@ builder.Host.UseDefaultServiceProvider((_, options) =>
     options.ValidateScopes = true;
 });
 
-// SQLite in-memory, kept alive by one open connection for the process lifetime. A relational
-// provider is required here: the composite foreign keys that make a cross-tenant reference
-// impossible are only enforced by a database that enforces foreign keys at all.
-var connection = new SqliteConnection("Filename=:memory:");
-connection.Open();
+// SQLite in-memory, kept alive by a dedicated connection for the process lifetime. DbContexts use
+// the connection string so every operation owns a separate connection to the shared ephemeral
+// database. A relational provider is required here because it enforces the composite foreign keys.
+var connectionString = CreateInMemoryConnectionString("CompileTimeFirst.BlazorServer");
+builder.Services.AddSingleton(_ =>
+{
+    var keeperConnection = new SqliteConnection(connectionString);
+    keeperConnection.Open();
+    return keeperConnection;
+});
 
 builder.Services.AddDbContextFactory<SchoolDbContext, TenantSchoolDbContextFactory>(
-    options => options.UseSqlite(connection), ServiceLifetime.Scoped);
+    options => options.UseSqlite(connectionString), ServiceLifetime.Scoped);
 builder.Services.AddDbContextFactory<ReadOnlySchoolDbContext, TenantReadOnlySchoolDbContextFactory>(
-    options => options.UseSqlite(connection), ServiceLifetime.Scoped);
+    options => options.UseSqlite(connectionString), ServiceLifetime.Scoped);
 RemoveDirectContextRegistration<ReadOnlySchoolDbContext>(builder.Services);
 
 builder.Services.AddSingleton(TimeProvider.System);
@@ -68,6 +73,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/login";
     options.AccessDeniedPath = "/login";
+    options.Cookie.Name = ".CompileTimeFirst.BlazorServer.Identity";
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Lax;
 });
@@ -84,6 +90,9 @@ if (args.Contains("--validate-di", StringComparer.OrdinalIgnoreCase))
     return;
 }
 
+// Resolve the keeper before the first operation opens a short-lived context connection. The DI
+// container owns and disposes this singleton when the host stops.
+_ = app.Services.GetRequiredService<SqliteConnection>();
 await SeedAsync(app.Services);
 
 if (!app.Environment.IsDevelopment())
@@ -111,6 +120,14 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+static string CreateInMemoryConnectionString(string hostName) =>
+    new SqliteConnectionStringBuilder
+    {
+        DataSource = $"{hostName}.{Guid.NewGuid():N}",
+        Mode = SqliteOpenMode.Memory,
+        Cache = SqliteCacheMode.Shared
+    }.ToString();
 
 static void RemoveDirectContextRegistration<TContext>(IServiceCollection services)
     where TContext : DbContext

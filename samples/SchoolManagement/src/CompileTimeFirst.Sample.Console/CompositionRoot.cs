@@ -23,15 +23,27 @@ public static class CompositionRoot
     {
         var services = new ServiceCollection();
 
-        // Kept open for the process lifetime; closing it discards the in-memory database.
-        var connection = new SqliteConnection("Filename=:memory:");
-        connection.Open();
+        var connectionString = new SqliteConnectionStringBuilder
+        {
+            DataSource = $"CompileTimeFirst.Console.{Guid.NewGuid():N}",
+            Mode = SqliteOpenMode.Memory,
+            Cache = SqliteCacheMode.Shared
+        }.ToString();
+
+        // The keeper owns only the database lifetime. Every context created by a factory opens an
+        // independently owned connection to the same named in-memory database.
+        services.AddSingleton(_ =>
+        {
+            var keeperConnection = new SqliteConnection(connectionString);
+            keeperConnection.Open();
+            return keeperConnection;
+        });
 
         var writeOptions = new DbContextOptionsBuilder<SchoolDbContext>()
-            .UseSqlite(connection)
+            .UseSqlite(connectionString)
             .Options;
         var readOptions = new DbContextOptionsBuilder<ReadOnlySchoolDbContext>()
-            .UseSqlite(connection)
+            .UseSqlite(connectionString)
             .Options;
 
         // A non-interactive host has no user to resolve a tenant from, so it declares one.
@@ -54,11 +66,14 @@ public static class CompositionRoot
         services.AddScoped<IExportQuestionsUseCase, ExportQuestionsUseCase>();
         services.AddScoped<SampleRunner>();
 
-        return services.BuildServiceProvider(new ServiceProviderOptions
+        var serviceProvider = services.BuildServiceProvider(new ServiceProviderOptions
         {
             ValidateOnBuild = true,
             ValidateScopes = true
         });
+
+        _ = serviceProvider.GetRequiredService<SqliteConnection>();
+        return serviceProvider;
     }
 
     public static void Validate(IServiceProvider provider)

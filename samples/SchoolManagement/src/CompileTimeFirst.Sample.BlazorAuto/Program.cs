@@ -21,13 +21,20 @@ builder.Host.UseDefaultServiceProvider((_, options) =>
     options.ValidateScopes = true;
 });
 
-var connection = new SqliteConnection("Filename=:memory:");
-connection.Open();
+// The keeper preserves the named in-memory database, but operation-scoped DbContexts never share
+// its connection instance. Each context opens its own connection from this connection string.
+var connectionString = CreateInMemoryConnectionString("CompileTimeFirst.BlazorAuto");
+builder.Services.AddSingleton(_ =>
+{
+    var keeperConnection = new SqliteConnection(connectionString);
+    keeperConnection.Open();
+    return keeperConnection;
+});
 
 builder.Services.AddDbContextFactory<SchoolDbContext, TenantSchoolDbContextFactory>(
-    options => options.UseSqlite(connection), ServiceLifetime.Scoped);
+    options => options.UseSqlite(connectionString), ServiceLifetime.Scoped);
 builder.Services.AddDbContextFactory<ReadOnlySchoolDbContext, TenantReadOnlySchoolDbContextFactory>(
-    options => options.UseSqlite(connection), ServiceLifetime.Scoped);
+    options => options.UseSqlite(connectionString), ServiceLifetime.Scoped);
 RemoveDirectContextRegistration<ReadOnlySchoolDbContext>(builder.Services);
 
 builder.Services.AddScoped<ClaimsCurrentUser>();
@@ -54,6 +61,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/login";
     options.AccessDeniedPath = "/login";
+    options.Cookie.Name = ".CompileTimeFirst.BlazorAuto.Identity";
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Lax;
     options.Events.OnRedirectToLogin = context =>
@@ -109,6 +117,7 @@ if (args.Contains("--validate-di", StringComparer.OrdinalIgnoreCase))
     return;
 }
 
+_ = app.Services.GetRequiredService<SqliteConnection>();
 await SeedAsync(app.Services);
 
 if (app.Environment.IsDevelopment())
@@ -144,6 +153,14 @@ app.MapRazorComponents<App>()
     .AddAdditionalAssemblies(typeof(CompileTimeFirst.Sample.BlazorAuto.Client._Imports).Assembly);
 
 app.Run();
+
+static string CreateInMemoryConnectionString(string hostName) =>
+    new SqliteConnectionStringBuilder
+    {
+        DataSource = $"{hostName}.{Guid.NewGuid():N}",
+        Mode = SqliteOpenMode.Memory,
+        Cache = SqliteCacheMode.Shared
+    }.ToString();
 
 static void RemoveDirectContextRegistration<TContext>(IServiceCollection services)
     where TContext : DbContext
