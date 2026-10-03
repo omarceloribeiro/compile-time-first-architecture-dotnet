@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CompileTimeFirst.Sample.Application.QuestionOptions;
 
-public interface ICreateQuestionOptionUseCase : IUseCase
+public interface ICreateQuestionOptionUseCase : IWriteUseCase
 {
     Task<CreateQuestionOptionResult> ExecuteAsync(
         CreateQuestionOptionRequest request,

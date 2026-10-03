@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CompileTimeFirst.Sample.Application.Dashboard;
 
-public interface IGetSchoolDashboardUseCase : IUseCase
+public interface IGetSchoolDashboardUseCase : IReadUseCase
 {
     Task<GetSchoolDashboardResult> ExecuteAsync(
         GetSchoolDashboardRequest request,
@@ -14,7 +14,7 @@ public sealed record GetSchoolDashboardRequest;
 public sealed record GetSchoolDashboardResult(int Subjects, int Grades, int Questions);
 
 public sealed class GetSchoolDashboardUseCase(
-    IDbContextFactory<ReadOnlySchoolDbContext> contextFactory)
+    IDbContextFactory<QuerySchoolDbContext> contextFactory)
     : UseCaseBase<GetSchoolDashboardRequest, GetSchoolDashboardResult>,
       IGetSchoolDashboardUseCase
 {

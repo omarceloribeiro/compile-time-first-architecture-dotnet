@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CompileTimeFirst.Sample.Application.Grades;
 
-public interface ICreateGradeUseCase : IUseCase
+public interface ICreateGradeUseCase : IWriteUseCase
 {
     Task<CreateGradeResult> ExecuteAsync(
         CreateGradeRequest request,

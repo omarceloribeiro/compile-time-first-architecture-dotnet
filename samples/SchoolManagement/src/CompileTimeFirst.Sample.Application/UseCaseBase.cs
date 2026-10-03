@@ -5,6 +5,9 @@ namespace CompileTimeFirst.Sample.Application;
 
 public interface IUseCase;
 
+public interface IReadUseCase : IUseCase;
+public interface IWriteUseCase : IUseCase;
+
 public abstract partial class UseCaseBase<TRequest, TResult> : IUseCase
     where TRequest : notnull
 {

@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted for v0.5.
+Accepted for v0.5. Extended by ADR 0013: the business query subtype also inherits these filters,
+so all three context types preserve tenant isolation.
 
 ## Context
 

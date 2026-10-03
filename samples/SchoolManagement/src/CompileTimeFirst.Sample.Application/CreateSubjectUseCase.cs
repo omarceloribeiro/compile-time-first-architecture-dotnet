@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CompileTimeFirst.Sample.Application.Subjects;
 
-public interface ICreateSubjectUseCase : IUseCase
+public interface ICreateSubjectUseCase : IWriteUseCase
 {
     Task<CreateSubjectResult> ExecuteAsync(
         CreateSubjectRequest request,

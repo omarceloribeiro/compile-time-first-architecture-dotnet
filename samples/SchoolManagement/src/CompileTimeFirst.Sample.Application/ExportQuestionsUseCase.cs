@@ -7,7 +7,7 @@ namespace CompileTimeFirst.Sample.Application.Exports;
 
 public enum ExportFormat { Csv = 1, Json = 2 }
 
-public interface IExportQuestionsUseCase : IUseCase
+public interface IExportQuestionsUseCase : IReadUseCase
 {
     Task<ExportFileResult> ExecuteAsync(
         ExportQuestionsRequest request,
@@ -20,7 +20,7 @@ public sealed record QuestionReport(IReadOnlyList<QuestionReportRow> Rows);
 public sealed record ExportFileResult(string FileName, string ContentType, byte[] Content);
 
 public sealed class ExportQuestionsUseCase(
-    IDbContextFactory<ReadOnlySchoolDbContext> contextFactory)
+    IDbContextFactory<QuerySchoolDbContext> contextFactory)
     : UseCaseBase<ExportQuestionsRequest, ExportFileResult>,
       IExportQuestionsUseCase
 {
@@ -31,11 +31,12 @@ public sealed class ExportQuestionsUseCase(
         await using var db = await contextFactory.CreateDbContextAsync(cancellationToken);
 
         var rows = await db.Questions
-            .OrderBy(x => x.CreatedAt)
             .Select(x => new QuestionReportRow(x.Id, x.Statement, x.Type.ToString(), x.CreatedAt))
             .ToListAsync(cancellationToken);
 
-        var report = new QuestionReport(rows);
+        // SQLite cannot order DateTimeOffset. This export already materializes the full typed
+        // report; sort it here to preserve instant ordering without changing the stored model.
+        var report = new QuestionReport(rows.OrderBy(x => x.CreatedAt).ThenBy(x => x.Id).ToList());
 
         return request.Format switch
         {

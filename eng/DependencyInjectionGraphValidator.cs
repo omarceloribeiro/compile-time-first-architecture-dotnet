@@ -31,7 +31,7 @@ public static class DependencyInjectionGraphValidator
 
         foreach (var markerInterface in options.MarkerInterfaces.Distinct())
         {
-            ValidateMarkerServices(provider, assemblies, markerInterface);
+            ValidateMarkerServices(provider, assemblies, markerInterface, options.MarkerInterfaces);
         }
 
         if (options.ValidateBlazorComponents)
@@ -43,7 +43,8 @@ public static class DependencyInjectionGraphValidator
     private static void ValidateMarkerServices(
         IServiceProvider provider,
         IEnumerable<Assembly> assemblies,
-        Type markerInterface)
+        Type markerInterface,
+        IReadOnlyCollection<Type> markerInterfaces)
     {
         if (!markerInterface.IsInterface)
         {
@@ -65,7 +66,7 @@ public static class DependencyInjectionGraphValidator
             var contracts = implementationType
                 .GetInterfaces()
                 .Where(contract =>
-                    contract != markerInterface &&
+                    !markerInterfaces.Contains(contract) &&
                     markerInterface.IsAssignableFrom(contract))
                 .Distinct()
                 .ToArray();

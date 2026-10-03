@@ -66,11 +66,14 @@ vocabulary; it does not remove product semantics or necessary boundaries.
 
 This principle applies differently at each boundary:
 
-- **Reads:** compose with the public `IQueryable<T>` and standard LINQ surface. `IReadDb` and
+- **Incidental reads:** compose with the public `IQueryable<T>` and standard LINQ surface. `IReadDb` and
   `IReadDbFactory` define the approved provider-independent read surface and its operation-scoped
   lifetime across EF Core and remote/OData providers. `IReadQueryExecutor` owns the separate async
   terminal/materialization boundary because those providers do not share a provider-neutral async
   terminal API.
+- **Business reads:** use the original EF entity model through a context with SaveChanges disabled.
+  Project directly to the use-case result. A separate business read model and query executor require
+  an explicit CQRS decision; they are not the default consequence of separating actor intentions.
 - **UI:** use Blazor and the selected component library directly. Product components are valid when
   they express concepts such as enrollment or attendance; mechanical `BaseGrid` or `BaseButton`
   wrappers are not the default. A design system documents approved use of the public library and
@@ -142,8 +145,9 @@ Component
 
 `IReadDb` and `IReadDbFactory` are justified boundaries under Well-Known First. They expose only the
 approved provider-independent read surface and own its operation-scoped creation/lifetime across EF
-Core and remote/OData implementations. Replacing them in Server code with
-`IDbContextFactory<ReadOnlyDbContext>` would leak an EF-only construction contract into feature code.
+Core and remote/OData implementations. Replacing them in incidental Server code with
+`IDbContextFactory<ReadOnlyDbContext>` would leak an EF-only construction contract into that UI code.
+This restriction does not apply to business read use cases.
 
 They do not replace the public query language: the component still composes `IQueryable<T>` with
 standard LINQ. `IReadQueryExecutor` owns only the separate async terminal and materialization
@@ -191,9 +195,39 @@ Dashboards, indicators, home summaries, reports and progress views are business 
 ```text
 UI / API
   → Read Use Case
-  → Read-only DbContext factory
+  → IDbContextFactory<QuerySchoolDbContext>
+  → original entities and EF Core queries
   → typed result
 ```
+
+`QuerySchoolDbContext` is a sealed subtype of the original `SchoolDbContext`. It inherits the whole
+model, including Identity, relationships and tenant filters, defaults to NoTracking and overrides all
+SaveChanges overloads to throw. It adds no intermediate read DTOs, repository or query executor.
+The original context owns schema creation and migrations; the subtype has no independent schema.
+
+| Operation | Default data access |
+|---|---|
+| Write use case | Original `SchoolDbContext` through its factory |
+| Business read use case | `QuerySchoolDbContext` through its factory; EF terminals |
+| Business read with explicit medium/strong CQRS | Separate read model, read factory and `IReadQueryExecutor` |
+| Incidental read | `IReadDb`, read factory and `IReadQueryExecutor` |
+
+The project must select medium/strong CQRS explicitly in its initial architecture, describing the
+required read-model separation. A later introduction requires an approved ADR. An API, Blazor render
+mode or separate read/write intentions never selects it implicitly. There is no runtime switch.
+The sample demonstrates the default shared entity model. See ADR 0013.
+
+Every specific use-case interface inherits either `IReadUseCase` or `IWriteUseCase`, both `IUseCase`.
+Implementations still inherit `UseCaseBase<TRequest,TResult>` and use its public pipeline. CTFA006
+requires exactly one classification on concrete implementations. CTFA007 rejects EF saves, bulk
+update/delete and ExecuteSql-family calls or method references inside read use cases. CTFA008
+rejects dependencies on the original writable context or its factory. The analyzer is installed in
+Application as well as the presentation projects.
+
+These guarantees are deliberately bounded. The runtime override blocks SaveChanges, including calls
+through base references. Bulk/SQL writes bypass SaveChanges and are covered by the analyzer only in
+the analyzed read-use-case code. External service call graphs, reflection and arbitrary ADO.NET are
+not covered transitively. This is protection against accidental writes, not a database permission.
 
 ## 6. Component boundary
 
@@ -258,7 +292,7 @@ disposable (§6), leaving the constructive half in the screen would lose it on t
 
 Two mechanisms, covering the two directions.
 
-**Reads** are covered by a named EF Core global query filter on `TenantId`, applied by both contexts.
+**Reads** are covered by a named EF Core global query filter on `TenantId`, applied by all three contexts.
 The comparison targets a property of the executing context, not a value captured when the model was
 built: EF caches the model per context type, so a captured value would freeze the first tenant that
 ever queried and serve its rows to everyone afterwards.
@@ -297,9 +331,10 @@ captures the principal for SSR and HTTP/OData requests. A `CircuitHandler` captu
 `AuthenticationStateProvider` when a Blazor circuit opens or reconnects and follows authentication
 state changes. The client never chooses its own tenant.
 
-## 7. Read-only context
+## 7. Incidental read context
 
-The read context:
+`ReadOnlySchoolDbContext` implements the approved incidental read surface. It is distinct from the
+original-model business query context described in §5.2. This incidental context:
 
 - defaults to `NoTracking`;
 - rejects `SaveChanges`;
@@ -349,7 +384,7 @@ Export is a business read use case:
 ```text
 Export Use Case
   → authorization and filters
-  → read model
+  → original entity model (separate read model only with explicit CQRS)
   → typed report model
   → Excel / CSV / JSON / PDF exporter
 ```
@@ -394,3 +429,7 @@ dependencies. With screen logic inside components, `@inject` compiles to an `[In
 the gate covers more of the system than it did when that logic lived in a separate registered
 class. Registration remains explicit; reflection validates the built graph and never performs
 automatic service registration.
+
+Composition roots list `IUseCase`, `IReadUseCase` and `IWriteUseCase` as marker interfaces. The gate
+excludes these markers from resolvable service contracts while still validating every specific
+use-case contract and its dependencies. Markers do not require DI registrations.

@@ -88,7 +88,14 @@ documentation and the installed version remain authoritative.
 
 ## Read boundaries that survive Well-Known First
 
-The provider-independent read stack deliberately combines public mechanics with narrow private
+Distinguish business reads from incidental queries. Business reads default to the public EF Core
+surface over the original entities, using `IDbContextFactory<QuerySchoolDbContext>`. This subtype
+inherits the original model and adds a concrete persistence guard; it does not rename EF's query API
+or require intermediate read items. `IReadQueryExecutor` is not required on this path. Only an
+explicit medium/strong CQRS decision selects a separate business read model and executor; see
+[ADR 0013](adr/0013-business-reads-on-original-model.md).
+
+The provider-independent incidental read stack deliberately combines public mechanics with narrow private
 boundaries:
 
 | Construct | Responsibility |
@@ -103,13 +110,13 @@ The same feature may receive an EF-backed read surface in Interactive Server and
 surface in WebAssembly. The private contracts keep provider creation and lifetime out of the
 component while preserving `IQueryable<T>` and standard LINQ as the visible composition language.
 
-Replacing them only in Server code with:
+Replacing them in incidental Server component code with:
 
 ```csharp
 IDbContextFactory<ReadOnlyDbContext>
 ```
 
-would make the feature depend on an EF-only construction contract and would reintroduce a different
+would make that component depend on an EF-only construction contract and would reintroduce a different
 read path for Server, WebAssembly and Interactive Auto.
 
 `IReadQueryExecutor` owns a different boundary. Query composition is portable, but EF Core and

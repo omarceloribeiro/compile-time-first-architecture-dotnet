@@ -30,8 +30,9 @@ Document the persistence invariants already represented by the School Management
 ## Multi-tenancy
 
 Subject, Grade, Question and QuestionOption are tenant-owned. Each carries `TenantId`, has a
-`(TenantId, Id)` alternate key and is protected by the named global query filter `Tenant` in both
-contexts. Foreign keys between tenant-owned entities include `TenantId`, making cross-tenant
+`(TenantId, Id)` alternate key and is protected by the named global query filter `Tenant` in all three
+contexts. QuerySchoolDbContext inherits the original model, including Identity and tenant filters;
+it does not own a separate schema or migrations. Foreign keys between tenant-owned entities include `TenantId`, making cross-tenant
 references unrepresentable.
 
 An unresolved tenant reads no tenant-owned rows. Writes obtain the tenant from `ICurrentUser`, never
@@ -56,3 +57,4 @@ Not modeled. Every successful create request produces a new Question identifier.
 ## Related functional specs
 
 - `SPEC-001-CREATE-QUESTION.md`
+- `SPEC-003-BUSINESS-READ-CONTEXT.md`

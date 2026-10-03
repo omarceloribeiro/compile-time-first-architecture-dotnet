@@ -45,6 +45,9 @@ public static class CompositionRoot
         var readOptions = new DbContextOptionsBuilder<ReadOnlySchoolDbContext>()
             .UseSqlite(connectionString)
             .Options;
+        var queryOptions = new DbContextOptionsBuilder<QuerySchoolDbContext>()
+            .UseSqlite(connectionString)
+            .Options;
 
         // A non-interactive host has no user to resolve a tenant from, so it declares one.
         services.AddSingleton<ICurrentUser>(new FixedTenant(DemoTenantId));
@@ -53,6 +56,8 @@ public static class CompositionRoot
             new TenantSchoolDbContextFactory(writeOptions, provider.GetRequiredService<ICurrentUser>()));
         services.AddScoped<IDbContextFactory<ReadOnlySchoolDbContext>>(provider =>
             new TenantReadOnlySchoolDbContextFactory(readOptions, provider.GetRequiredService<ICurrentUser>()));
+        services.AddScoped<IDbContextFactory<QuerySchoolDbContext>>(provider =>
+            new TenantQuerySchoolDbContextFactory(queryOptions, provider.GetRequiredService<ICurrentUser>()));
 
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IReadSchoolDbFactory, ReadSchoolDbFactory>();
@@ -86,7 +91,7 @@ public static class CompositionRoot
                     typeof(IUseCase).Assembly,
                     typeof(SampleRunner).Assembly
                 ],
-                MarkerInterfaces: [typeof(IUseCase)],
+                MarkerInterfaces: [typeof(IUseCase), typeof(IReadUseCase), typeof(IWriteUseCase)],
                 ValidateBlazorComponents: false));
     }
 

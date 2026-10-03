@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CompileTimeFirst.Sample.Application.Questions;
 
-public interface ICreateQuestionUseCase : IUseCase
+public interface ICreateQuestionUseCase : IWriteUseCase
 {
     Task<CreateQuestionResult> ExecuteAsync(
         CreateQuestionRequest request,

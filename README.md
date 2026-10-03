@@ -86,10 +86,12 @@ The sample demonstrates:
 - `UseCaseBase<TRequest,TResult>` using the Template Method pattern;
 - one production file per use case containing interface, request, result and implementation;
 - `IDbContextFactory<TContext>` for one context per operation;
-- a read-only EF Core context;
+- a protected original-model context for business reads and a separate incidental read context;
+- mandatory read/write use-case classification and build errors for accidental persistence in reads;
 - an `IReadSchoolDb` surface based on `IQueryable<T>`;
 - a direct component read with screen state owned by the component;
-- one shared EF Core model configuration for the write and read contexts;
+- shared EF Core domain configuration across all three contexts, with the business query subtype
+  inheriting the original model;
 - encapsulated domain entities with behaviour methods and no public setters;
 - tenant isolation by composite keys and a named global query filter, with no hand-written tenant predicate anywhere;
 - paged incidental reads through the same executor contract in EF Core and browser OData;
@@ -146,10 +148,22 @@ Component or endpoint
         ↓
 Read Use Case
         ↓
-Read-only DbContext
+IDbContextFactory<QuerySchoolDbContext>
+        ↓
+Original entities / EF Core (SaveChanges disabled)
         ↓
 Typed result
 ```
+
+Business reads use the original model by default and project directly into their typed results.
+A separate read model with `IReadQueryExecutor` requires medium/strong CQRS explicitly selected in
+the initial architecture, or a later approved ADR. Render modes and HTTP endpoints do not imply
+that separation. Incidental queries keep their existing read surface and executor.
+
+`IReadUseCase` and `IWriteUseCase` classify every concrete use case. CTFA006–008 reject missing or
+ambiguous classification, direct EF persistence in reads, and writable-context dependencies. The
+runtime query context also rejects all SaveChanges overloads. These guards do not prove absence of
+indirect writes through arbitrary services or database APIs. See [ADR 0013](docs/adr/0013-business-reads-on-original-model.md).
 
 ## Why this exists
 

@@ -18,6 +18,12 @@ The experimental Blazor Auto composition root also builds the browser service co
 validation, because a WebAssembly assembly cannot be executed directly as a normal `dotnet`
 process. The supported Blazor Server root validates only its own graph.
 
+Roots executing use cases list `IUseCase`, `IReadUseCase` and `IWriteUseCase` in `MarkerInterfaces`.
+Every listed marker is excluded from service-contract resolution; specific interfaces such as
+`IGetSchoolDashboardUseCase` are still resolved and checked against their implementation. Do not
+register marker interfaces as services merely to satisfy the gate. The Server and Console roots
+also register the operation-scoped `IDbContextFactory<QuerySchoolDbContext>` for business reads.
+
 ## Commands
 
 ```bash

@@ -6,6 +6,15 @@
 
 ## Contexto
 
+## Classificação e acesso aos dados
+
+Informe `IReadUseCase` ou `IWriteUseCase`. Leituras de negócio usam, por padrão, o modelo original
+por um contexto derivado com SaveChanges bloqueado e terminais EF, projetando direto no resultado.
+Escritas usam o contexto original. Consultas incidentais usam a superfície de leitura e o executor.
+
+Para um modelo de leitura de negócio separado com executor, referencie a decisão inicial de CQRS
+médio/forte do projeto ou um ADR posterior aprovado. Não deduza CQRS do frontend ou dos endpoints.
+
 ## Pré-condições
 
 ## Fluxo principal

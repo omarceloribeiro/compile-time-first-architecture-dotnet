@@ -265,11 +265,13 @@ public class ReadOnlyArchitectureAnalyzer : DiagnosticAnalyzer
         var readDbType = compilation.GetTypeByMetadataName(ReadDbMetadataName);
         var readDbScopeType = compilation.GetTypeByMetadataName(ReadDbScopeMetadataName);
         var readOnlyContextType = compilation.GetTypeByMetadataName(ReadOnlyDbContextMetadataName);
+        var dbContextType = compilation.GetTypeByMetadataName("Microsoft.EntityFrameworkCore.DbContext");
 
         return IsSameTypeOrImplements(type, queryableType) ||
                IsSameTypeOrImplements(type, readDbType) ||
                IsSameTypeOrImplements(type, readDbScopeType) ||
-               IsSameTypeOrInherits(type, readOnlyContextType);
+               IsSameTypeOrInherits(type, readOnlyContextType) ||
+               IsSameTypeOrInherits(type, dbContextType);
     }
 
     private static bool IsWriteContextType(ITypeSymbol type, Compilation compilation)

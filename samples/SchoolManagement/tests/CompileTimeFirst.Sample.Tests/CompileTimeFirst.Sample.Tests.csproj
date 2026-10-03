@@ -7,7 +7,7 @@
     <ProjectReference Include="../../src/CompileTimeFirst.Sample.Application/CompileTimeFirst.Sample.Application.csproj" />
     <ProjectReference Include="../../src/CompileTimeFirst.Sample.Analyzers/CompileTimeFirst.Sample.Analyzers.csproj" />
     <ProjectReference Include="../../src/CompileTimeFirst.Sample.Data/CompileTimeFirst.Sample.Data.csproj" />
-    <ProjectReference Include="../../src/CompileTimeFirst.Sample.BlazorServer/CompileTimeFirst.Sample.BlazorServer.csproj" />
+    <ProjectReference Include="../../src/CompileTimeFirst.Sample.BlazorServer/CompileTimeFirst.Sample.BlazorServer.csproj" Aliases="global,ServerHost" />
     <ProjectReference Include="../../src/CompileTimeFirst.Sample.BlazorAuto/CompileTimeFirst.Sample.BlazorAuto.csproj" />
     <ProjectReference Include="../../src/CompileTimeFirst.Sample.BlazorAuto.Client/CompileTimeFirst.Sample.BlazorAuto.Client.csproj" />
   </ItemGroup>
