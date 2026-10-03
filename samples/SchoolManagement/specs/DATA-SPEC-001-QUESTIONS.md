@@ -30,10 +30,10 @@ Document the persistence invariants already represented by the School Management
 ## Multi-tenancy
 
 Subject, Grade, Question and QuestionOption are tenant-owned. Each carries `TenantId`, has a
-`(TenantId, Id)` alternate key and is protected by the named global query filter `Tenant` in all three
-contexts. QuerySchoolDbContext inherits the original model, including Identity and tenant filters;
-it does not own a separate schema or migrations. Foreign keys between tenant-owned entities include `TenantId`, making cross-tenant
-references unrepresentable.
+`(TenantId, Id)` alternate key and is protected by the named global query filter `Tenant` in both
+contexts. Business reads use the original SchoolDbContext and its tenant-stamped factory, with no
+separate schema or migrations. Foreign keys between tenant-owned entities include `TenantId`,
+making cross-tenant references unrepresentable.
 
 An unresolved tenant reads no tenant-owned rows. Writes obtain the tenant from `ICurrentUser`, never
 from the request. ASP.NET Core Identity stores the account-to-tenant foreign key and emits its value

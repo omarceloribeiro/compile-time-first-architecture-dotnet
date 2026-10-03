@@ -28,21 +28,17 @@ internal sealed class TestDatabase : IAsyncDisposable
         SqliteConnection keeperConnection,
         DbContextOptions<SchoolDbContext> writeOptions,
         DbContextOptions<ReadOnlySchoolDbContext> readOptions,
-        DbContextOptions<QuerySchoolDbContext> queryOptions,
         TestCurrentUser currentUser)
     {
         _keeperConnection = keeperConnection;
         WriteOptions = writeOptions;
         ReadOptions = readOptions;
-        QueryOptions = queryOptions;
         CurrentUser = currentUser;
     }
 
     public DbContextOptions<SchoolDbContext> WriteOptions { get; }
 
     public DbContextOptions<ReadOnlySchoolDbContext> ReadOptions { get; }
-
-    public DbContextOptions<QuerySchoolDbContext> QueryOptions { get; }
 
     public TestCurrentUser CurrentUser { get; }
 
@@ -51,9 +47,6 @@ internal sealed class TestDatabase : IAsyncDisposable
 
     public IDbContextFactory<ReadOnlySchoolDbContext> ReadFactory =>
         new TenantReadOnlySchoolDbContextFactory(ReadOptions, CurrentUser);
-
-    public IDbContextFactory<QuerySchoolDbContext> QueryFactory =>
-        new TenantQuerySchoolDbContextFactory(QueryOptions, CurrentUser);
 
     public static async Task<TestDatabase> CreateAsync(Guid? tenantId = null)
     {
@@ -72,12 +65,8 @@ internal sealed class TestDatabase : IAsyncDisposable
         var readOptions = new DbContextOptionsBuilder<ReadOnlySchoolDbContext>()
             .UseSqlite(connectionString)
             .Options;
-        var queryOptions = new DbContextOptionsBuilder<QuerySchoolDbContext>()
-            .UseSqlite(connectionString)
-            .Options;
-
         var currentUser = new TestCurrentUser(tenantId ?? TenantA);
-        var database = new TestDatabase(keeperConnection, writeOptions, readOptions, queryOptions, currentUser);
+        var database = new TestDatabase(keeperConnection, writeOptions, readOptions, currentUser);
 
         await using var seed = new SchoolDbContext(writeOptions);
         await seed.Database.EnsureCreatedAsync();

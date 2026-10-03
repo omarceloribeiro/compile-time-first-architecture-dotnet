@@ -65,10 +65,19 @@ Write use cases inject:
 IDbContextFactory<SchoolDbContext>
 ```
 
-Read use cases default to `IDbContextFactory<QuerySchoolDbContext>`. This sealed subtype inherits
-the original `SchoolDbContext` entity model, defaults to NoTracking and rejects all SaveChanges
-overloads. Query entities with EF Core directly and project into the use-case result; do not add
-intermediate read projections or require `IReadQueryExecutor` here.
+Read use cases default to the same `IDbContextFactory<SchoolDbContext>`. Query the original entities
+with EF Core directly and project into the use-case result; do not add a business-read context
+subtype, intermediate read projections or require `IReadQueryExecutor` here.
+
+Start every EF query in a read use case with `AsNoTracking()` (or
+`AsNoTrackingWithIdentityResolution()` when needed), immediately after the `DbSet` or `Set<T>()`
+source and before composition or storing the query in a local variable. Apply it to each source in
+joins and subqueries too. For `FromSql*`, apply it immediately after that call, which needs a DbSet.
+Counts, existence checks and scalar-only projections follow the same convention even though they
+do not track entities. Do not use `AsTracking()` in read use cases. CTFA009 reports obvious source
+violations and EF AsTracking calls/method references as errors; it does not follow query data flow
+through arbitrary helpers. Agents and reviewers enforce the convention beyond that coverage.
+Keep the original context/factory's tracking default for writes; do not change shared options.
 
 A separate business read model with a read factory and `IReadQueryExecutor` requires medium/strong
 CQRS explicitly selected in the initial project architecture, or a later approved ADR. Separate
@@ -76,12 +85,13 @@ read/write intentions, an API or a Blazor render mode do not imply that choice. 
 selects this architecture. Incidental reads still use `IReadDb` and `IReadQueryExecutor`.
 
 CTFA007 rejects EF SaveChanges, ExecuteUpdate/Delete and ExecuteSql-family calls and method
-references in read use cases. CTFA008 rejects dependencies on the original writable context or its
-factory. Install the analyzer in projects implementing use cases, including Application.
+references in read use cases. Install the analyzer in projects implementing use cases, including
+Application. The original context and its factory are valid business-read dependencies.
 
-These are bounded protections: the runtime override only intercepts SaveChanges. External helper
-call graphs, reflection and arbitrary ADO.NET are not covered transitively. Never describe the
-context as a database read-only permission boundary. See ADR 0013.
+These are bounded compile-time protections; the original context has no runtime save guard.
+External helper call graphs, reflection and arbitrary ADO.NET are not covered transitively.
+A read use case must not delegate persistence to a helper or another use case. NoTracking does not
+prevent explicit writes or side effects in logging/middleware. See ADR 0013.
 
 Each operation creates and disposes its own context.
 
@@ -186,7 +196,7 @@ remembering to filter.
 - A tenant-owned entity carries `TenantId` and has a `(TenantId, Id)` alternate key.
 - Every foreign key between tenant-owned entities is composite and includes `TenantId`, so a
   cross-tenant reference is not merely forbidden - it is unrepresentable in the database.
-- All three contexts apply a named EF Core global query filter on `TenantId`, taken from the tenant the
+- Both contexts apply a named EF Core global query filter on `TenantId`, taken from the tenant the
   factory stamped onto the context for this operation.
 - **Do not write a `TenantId` comparison in a page, component, endpoint or use-case query.** A
   hand-written tenant filter is a defect even when it is correct, because it is one more place that

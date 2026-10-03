@@ -21,15 +21,6 @@ public sealed class TenantSchoolDbContextFactory(
         new(options) { TenantId = currentUser.TenantId };
 }
 
-public sealed class TenantQuerySchoolDbContextFactory(
-    DbContextOptions<QuerySchoolDbContext> options,
-    ICurrentUser currentUser)
-    : IDbContextFactory<QuerySchoolDbContext>
-{
-    public QuerySchoolDbContext CreateDbContext() =>
-        new(options) { TenantId = currentUser.TenantId };
-}
-
 public sealed class TenantReadOnlySchoolDbContextFactory(
     DbContextOptions<ReadOnlySchoolDbContext> options,
     ICurrentUser currentUser)

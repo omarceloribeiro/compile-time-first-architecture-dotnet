@@ -14,9 +14,9 @@ public interface ITenantScope
 }
 
 /// <summary>
-/// One domain configuration shared by the original, business query and incidental read contexts.
+/// One domain configuration shared by the original and incidental read contexts.
 ///
-/// All three contexts map the same domain entities, so configuring them separately lets models drift
+/// Both contexts map the same domain entities, so configuring them separately lets models drift
 /// apart silently - a relationship configured on one side and missing on the other still compiles
 /// and still passes tests that only exercise one context.
 /// </summary>

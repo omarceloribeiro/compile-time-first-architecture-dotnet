@@ -20,7 +20,7 @@ public sealed class PresentationHostIsolationTests
         Assert.Null(scope.ServiceProvider.GetService<IReadUseCase>());
         Assert.Null(scope.ServiceProvider.GetService<IWriteUseCase>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IGetSchoolDashboardUseCase>());
-        var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<QuerySchoolDbContext>>();
+        var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<SchoolDbContext>>();
         await using var first = await factory.CreateDbContextAsync();
         await using var second = await factory.CreateDbContextAsync();
         Assert.NotSame(first.Database.GetDbConnection(), second.Database.GetDbConnection());

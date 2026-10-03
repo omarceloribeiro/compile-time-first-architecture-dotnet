@@ -72,8 +72,8 @@ Reads remain flexible within an approved surface:
 - incidental screen reads compose the portable `IQueryable` subset over typed OData read models;
 - every list, grid, autocomplete and history is paged and materialized through `IReadQueryExecutor`;
 - dashboards, indicators, reports, exports and reusable or auditable views remain read use cases;
-- those server-side use cases default to the original model through a context with SaveChanges
-  disabled (ADR 0013); a browser frontend does not require a separate business read model;
+- those server-side use cases default to the original model and context, with build-time persistence
+  checks (ADR 0013); a browser frontend does not require a separate business read model;
 - the API exposes approved read DTOs, never EF entities or an unrestricted database model;
 - the server applies authentication, tenant isolation and query limits before executing client query
   options.

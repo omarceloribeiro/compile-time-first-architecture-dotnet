@@ -31,7 +31,7 @@ build stayed green. Name-based scoping stops applying exactly when a convention 
 the moment enforcement is most needed.
 
 For CTFA006, a concrete class or struct implementing `IUseCase` must implement exactly one of
-`IReadUseCase` and `IWriteUseCase`. Abstract bases may remain unclassified. CTFA007/008 apply to
+`IReadUseCase` and `IWriteUseCase`. Abstract bases may remain unclassified. CTFA007 and CTFA009 apply to
 types implementing `IReadUseCase`, including inherited markers, abstract read bases and nested
 helpers declared inside a read type. These rules use symbols rather than naming conventions.
 
@@ -46,14 +46,14 @@ helpers declared inside a read type. These rules use symbols rather than naming 
 | CTFA005 | A component cannot call EF Core `SingleOrDefaultAsync()`, `CountAsync()` or `AnyAsync()` | Error | v0.3 |
 | CTFA006 | A concrete use case must have exactly one read/write classification | Error | ADR 0013 |
 | CTFA007 | A read use case cannot call or capture EF persistence methods | Error | ADR 0013 |
-| CTFA008 | A read use case cannot receive the original writable context or its factory | Error | ADR 0013 |
+| CTFA009 | EF read queries require an immediate no-tracking modifier at the source and cannot use AsTracking | Error | ADR 0013 |
 
 ## CTFA001 — Write DbContext injected into a component
 
 **Detects** a component whose constructor, primary constructor or `[Inject]` property takes the
 write `DbContext` or `IDbContextFactory<TWriteContext>`.
-Subtypes, including the business query context, are also prohibited here: components keep the
-incidental surface rather than taking a business-use-case context.
+The incidental surface remains the component boundary. Business reads may use the original context
+inside a use case; that does not permit injecting it into a component.
 
 **Why** writes pass through use cases. A component holding a write context can persist directly,
 which bypasses the only place where write rules are stated.
@@ -91,7 +91,7 @@ items = await QueryExecutor.ToListAsync(db.Subjects.Where(x => x.IsActive));
 ## CTFA004 — Query or read scope stored as component state
 
 **Detects** a field or property on a component typed `IQueryable<T>`, `IOrderedQueryable<T>`, the
-read scope or any EF `DbContext` subtype, including the business query context.
+read scope or any EF `DbContext` subtype.
 
 **Why** a stored query keeps its provider and DbContext alive beyond the operation, and can be
 enumerated later, concurrently, or from a render pass that no longer owns the scope. Only
@@ -127,16 +127,48 @@ the relational extension type is also recognized when it supplies those methods.
 casts, lambdas, local functions, private methods and nested helpers within a read type are covered.
 Unrelated methods with the same name are allowed. Normal EF read terminals remain valid in use cases.
 
-The sealed query context additionally rejects SaveChanges at runtime, even through a base reference.
-Bulk and SQL calls bypass SaveChanges; their protection here is static, not a runtime override.
+Business reads use the original context and factory. Their persistence protection is static;
+there is no business-read subtype or runtime SaveChanges override. The proposed CTFA008 dependency
+restriction was removed before release because the original factory is now the default read path.
 
-## CTFA008 — Writable dependency received by a read use case
+## CTFA009 — Explicit no-tracking query sources in read use cases
 
-Rejects constructor/primary-constructor parameters, declared fields and properties typed as the
-original `SchoolDbContext` (or writable subtypes), or implementations of
-`IDbContextFactory<SchoolDbContext>`. `QuerySchoolDbContext` and its factory are exempt. The approved
-incidental/CQRS read surface is also allowed; selecting separate-model CQRS still requires a spec/ADR.
-This is not data-flow analysis of contexts created locally or hidden behind other service types.
+Every EF query in a read use case follows one convention: apply `AsNoTracking()` or
+`AsNoTrackingWithIdentityResolution()` immediately at each query source, before composition or
+storing a query variable. Counts, existence checks and scalar-only projections also follow it.
+They do not track entities, but requiring the same modifier avoids materialization analysis and
+gives humans and agents one predictable pattern.
+
+**Detects** direct `DbSet<T>` property/field reads and calls to `DbContext.Set<T>()` without the
+immediate modifier. For `FromSql`, `FromSqlRaw` and `FromSqlInterpolated`, the modifier follows the
+SQL query call because those APIs need a DbSet receiver. Metadata access such as `nameof(db.Subjects)`
+and `db.Subjects.EntityType` is exempt. EF `AsTracking` calls and method references are rejected,
+including calls on a query variable that started with `AsNoTracking`.
+
+```csharp
+// Wrong: scalar queries follow the same convention.
+var count = await db.Subjects.CountAsync(ct);
+
+// Wrong: the modifier must be applied at the source, before Where/Select/other composition.
+var rows = await db.Subjects.Where(x => x.Name != "").AsNoTracking().ToListAsync(ct);
+
+// Right: a query variable can be reused after its source opts out of tracking.
+var query = db.Subjects.AsNoTracking();
+var count = await query.CountAsync(ct);
+var names = await query.Select(x => x.Name).ToListAsync(ct);
+```
+
+Each source is checked independently, including sources inside joins and subqueries. Symbols
+identify EF methods, so an unrelated `AsNoTracking` does not satisfy the rule and an unrelated
+`AsTracking` is allowed. Extension and static calls, parentheses and reference conversions are
+supported. Direct bulk writes already rejected by CTFA007 do not receive a redundant source error.
+
+This is a bounded convention check, not proof of the final query's tracking state. It does not
+follow helper call graphs, trace incoming `IQueryable`/`DbSet` parameters or locals to their origins,
+or infer provider behavior from custom query wrappers. Such queries still follow the convention,
+enforced by agents and review outside the diagnosed cases. The check applies only to read-use-case
+types and their nested helpers; writes and external logging/middleware keep their existing behavior.
+Do not change the shared factory's tracking default to satisfy the rule.
 
 ## Planned rules, and why they are not implemented
 
@@ -146,10 +178,14 @@ This is not data-flow analysis of contexts created locally or hidden behind othe
   be discovered.
 - **Incidental terminals outside Blazor.** CTFA001–005 use component scope; endpoint or plain-class
   incidental reads are not checked by these UI rules. Business-read persistence has its own marker
-  scope, CTFA006–008.
+  scope, CTFA006–007 and CTFA009.
 - **Transitive side effects.** External services/helpers, inherited bodies in unmarked base classes,
   reflection, dynamic calls and arbitrary ADO.NET are not analyzed transitively. Delegating a write
   from a read use case is forbidden by architecture but not proven absent by this analyzer.
+- **Full query tracking analysis.** CTFA009 checks direct sources and explicit `AsTracking`.
+  Proving the final tracking state through arbitrary query variables, aliases, helper calls and
+  custom providers would require data-flow and interprocedural analysis. That additional complexity
+  is intentionally outside the analyzer; the convention remains applicable to those queries.
 
 ## Adding or changing a rule
 
@@ -171,7 +207,8 @@ asserts that a class named `ProductsViewModel` is *not* in scope.
 
 ## What these analyzers do not prove
 
-They check component read boundaries and known direct persistence in classified business reads.
+They check component read boundaries, known direct persistence and obvious query-source tracking
+violations in classified business reads.
 They do not prove a database permission boundary, absence of all indirect writes, appropriate CQRS
-selection, correct controls, provider portability or business correctness. Those remain the job of
-specifications, tests and review. See ADR 0013 for runtime limits.
+selection, the final tracking state of every query, controls, provider portability or business correctness. Those
+remain the job of specifications, tests and review. See ADR 0013 for protection limits.

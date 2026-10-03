@@ -12,7 +12,7 @@ public sealed class ReadUseCaseAnalyzer : DiagnosticAnalyzer
 {
     public const string ClassificationId = "CTFA006";
     public const string PersistenceId = "CTFA007";
-    public const string WritableContextId = "CTFA008";
+    public const string NoTrackingId = "CTFA009";
 
     private static readonly DiagnosticDescriptor Classification = new(
         ClassificationId, "Classify the use case as read or write",
@@ -24,13 +24,13 @@ public sealed class ReadUseCaseAnalyzer : DiagnosticAnalyzer
         "Read use case code cannot reference '{0}'; persist through a write use case",
         "Architecture", DiagnosticSeverity.Error, isEnabledByDefault: true);
 
-    private static readonly DiagnosticDescriptor WritableContext = new(
-        WritableContextId, "A read use case cannot receive a writable context",
-        "Read use case '{0}' cannot receive '{1}'; use IDbContextFactory<QuerySchoolDbContext> or the explicitly approved CQRS read surface",
+    private static readonly DiagnosticDescriptor NoTracking = new(
+        NoTrackingId, "Start read queries with an explicit no-tracking modifier",
+        "Read use case queries must apply AsNoTracking() or AsNoTrackingWithIdentityResolution() immediately at the source and cannot use AsTracking(): {0}",
         "Architecture", DiagnosticSeverity.Error, isEnabledByDefault: true);
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-        ImmutableArray.Create(Classification, Persistence, WritableContext);
+        ImmutableArray.Create(Classification, Persistence, NoTracking);
 
     public override void Initialize(AnalysisContext context)
     {
@@ -52,24 +52,34 @@ public sealed class ReadUseCaseAnalyzer : DiagnosticAnalyzer
                 return;
             }
 
-            var original = start.Compilation.GetTypeByMetadataName("CompileTimeFirst.Sample.Data.SchoolDbContext");
-            var query = start.Compilation.GetTypeByMetadataName("CompileTimeFirst.Sample.Data.QuerySchoolDbContext");
-            var factory = start.Compilation.GetTypeByMetadataName("Microsoft.EntityFrameworkCore.IDbContextFactory`1");
             var forbiddenMethods = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
-            AddMethods("Microsoft.EntityFrameworkCore.DbContext", "SaveChanges", "SaveChangesAsync");
-            AddMethods("Microsoft.EntityFrameworkCore.RelationalQueryableExtensions",
+            AddMethods(forbiddenMethods, "Microsoft.EntityFrameworkCore.DbContext", "SaveChanges", "SaveChangesAsync");
+            AddMethods(forbiddenMethods, "Microsoft.EntityFrameworkCore.RelationalQueryableExtensions",
                 "ExecuteUpdate", "ExecuteUpdateAsync", "ExecuteDelete", "ExecuteDeleteAsync");
             // EF Core 10 exposes bulk writes on the non-relational extension type.
-            AddMethods("Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions",
+            AddMethods(forbiddenMethods, "Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions",
                 "ExecuteUpdate", "ExecuteUpdateAsync", "ExecuteDelete", "ExecuteDeleteAsync");
-            AddMethods("Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions",
+            AddMethods(forbiddenMethods, "Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions",
                 "ExecuteSql", "ExecuteSqlAsync", "ExecuteSqlRaw", "ExecuteSqlRawAsync",
                 "ExecuteSqlInterpolated", "ExecuteSqlInterpolatedAsync");
 
+            var dbSet = start.Compilation.GetTypeByMetadataName("Microsoft.EntityFrameworkCore.DbSet`1");
+            var querySources = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+            AddMethods(querySources, "Microsoft.EntityFrameworkCore.DbContext", "Set");
+            AddMethods(querySources, "Microsoft.EntityFrameworkCore.RelationalQueryableExtensions",
+                "FromSql", "FromSqlRaw", "FromSqlInterpolated");
+            var noTrackingMethods = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+            AddMethods(noTrackingMethods, "Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions",
+                "AsNoTracking", "AsNoTrackingWithIdentityResolution");
+            var trackingMethods = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+            AddMethods(trackingMethods, "Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions", "AsTracking");
+
             start.RegisterSymbolAction(AnalyzeType, SymbolKind.NamedType);
             start.RegisterOperationAction(AnalyzePersistence, OperationKind.Invocation, OperationKind.MethodReference);
+            start.RegisterOperationAction(AnalyzeTracking, OperationKind.Invocation, OperationKind.MethodReference,
+                OperationKind.PropertyReference, OperationKind.FieldReference);
 
-            void AddMethods(string metadataName, params string[] memberNames)
+            void AddMethods(HashSet<IMethodSymbol> methods, string metadataName, params string[] memberNames)
             {
                 var type = start.Compilation.GetTypeByMetadataName(metadataName);
                 if (type is null)
@@ -81,7 +91,7 @@ public sealed class ReadUseCaseAnalyzer : DiagnosticAnalyzer
                 {
                     foreach (var method in type.GetMembers(name).OfType<IMethodSymbol>())
                     {
-                        forbiddenMethods.Add(method.OriginalDefinition);
+                        methods.Add(method.OriginalDefinition);
                     }
                 }
             }
@@ -99,46 +109,6 @@ public sealed class ReadUseCaseAnalyzer : DiagnosticAnalyzer
                 {
                     analysis.ReportDiagnostic(Diagnostic.Create(Classification, type.Locations[0], type.Name));
                 }
-
-                if (!IsReadScope(type, read))
-                {
-                    return;
-                }
-
-                foreach (var constructor in type.InstanceConstructors.Where(c => !c.IsImplicitlyDeclared))
-                {
-                    foreach (var parameter in constructor.Parameters)
-                    {
-                        CheckDependency(parameter, parameter.Type);
-                    }
-                }
-
-                foreach (var member in type.GetMembers().Where(m => !m.IsImplicitlyDeclared))
-                {
-                    if (member is IPropertySymbol property)
-                    {
-                        CheckDependency(property, property.Type);
-                    }
-                    else if (member is IFieldSymbol field)
-                    {
-                        CheckDependency(field, field.Type);
-                    }
-                }
-
-                void CheckDependency(ISymbol member, ITypeSymbol dependency)
-                {
-                    if (IsWritable(dependency) ||
-                        TypeAndInterfaces(dependency).Any(candidate =>
-                            SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition, factory) &&
-                            candidate.TypeArguments.Length == 1 && IsWritable(candidate.TypeArguments[0])))
-                    {
-                        analysis.ReportDiagnostic(Diagnostic.Create(
-                            WritableContext, member.Locations[0], type.Name, dependency.ToDisplayString()));
-                    }
-                }
-
-                bool IsWritable(ITypeSymbol candidate) =>
-                    Inherits(candidate, original) && !Inherits(candidate, query);
             }
 
             void AnalyzePersistence(OperationAnalysisContext analysis)
@@ -155,17 +125,85 @@ public sealed class ReadUseCaseAnalyzer : DiagnosticAnalyzer
                     _ => null
                 };
 
-                for (var method = target; method is not null; method = method.OverriddenMethod)
+                if (MatchesMethod(target, forbiddenMethods))
                 {
-                    if (forbiddenMethods.Contains((method.ReducedFrom ?? method).OriginalDefinition))
-                    {
-                        analysis.ReportDiagnostic(Diagnostic.Create(
-                            Persistence, analysis.Operation.Syntax.GetLocation(), target!.ToDisplayString()));
-                        return;
-                    }
+                    analysis.ReportDiagnostic(Diagnostic.Create(
+                        Persistence, analysis.Operation.Syntax.GetLocation(), target!.ToDisplayString()));
                 }
             }
+
+            void AnalyzeTracking(OperationAnalysisContext analysis)
+            {
+                if (!IsReadScope(analysis.ContainingSymbol.ContainingType, read))
+                {
+                    return;
+                }
+
+                var operation = analysis.Operation;
+                var method = operation switch
+                {
+                    IInvocationOperation invocation => invocation.TargetMethod,
+                    IMethodReferenceOperation reference => reference.Method,
+                    _ => null
+                };
+                if (MatchesMethod(method, trackingMethods))
+                {
+                    analysis.ReportDiagnostic(Diagnostic.Create(
+                        NoTracking, operation.Syntax.GetLocation(), "AsTracking is forbidden"));
+                    return;
+                }
+
+                var isSource = operation is IInvocationOperation && MatchesMethod(method, querySources)
+                    || operation is IPropertyReferenceOperation or IFieldReferenceOperation
+                        && dbSet is not null && operation.Type is INamedTypeSymbol type
+                        && SymbolEqualityComparer.Default.Equals(type.OriginalDefinition, dbSet);
+                if (!isSource)
+                {
+                    return;
+                }
+
+                var consumer = operation.Parent;
+                while (consumer is IConversionOperation { OperatorMethod: null }
+                    or IParenthesizedOperation or IArgumentOperation)
+                {
+                    consumer = consumer.Parent;
+                }
+
+                // Metadata inspection and assigning a DbSet member are not query reads.
+                if (consumer is INameOfOperation or IPropertyReferenceOperation
+                    || consumer is ISimpleAssignmentOperation assignment && assignment.Target == operation)
+                {
+                    return;
+                }
+
+                if (consumer is IInvocationOperation call &&
+                    (MatchesMethod(call.TargetMethod, noTrackingMethods)
+                        // FromSql needs a DbSet receiver; check its result as the query source instead.
+                        || MatchesMethod(call.TargetMethod, querySources)
+                        // These calls already receive a persistence or tracking diagnostic.
+                        || MatchesMethod(call.TargetMethod, forbiddenMethods)
+                        || MatchesMethod(call.TargetMethod, trackingMethods)))
+                {
+                    return;
+                }
+
+                analysis.ReportDiagnostic(Diagnostic.Create(
+                    NoTracking, operation.Syntax.GetLocation(), "the query source has no immediate modifier"));
+            }
         });
+    }
+
+    private static bool MatchesMethod(IMethodSymbol? target, HashSet<IMethodSymbol> methods)
+    {
+        for (var method = target; method is not null; method = method.OverriddenMethod)
+        {
+            if (methods.Contains((method.ReducedFrom ?? method).OriginalDefinition))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool IsReadScope(INamedTypeSymbol? type, INamedTypeSymbol read)
@@ -183,35 +221,4 @@ public sealed class ReadUseCaseAnalyzer : DiagnosticAnalyzer
 
     private static bool Implements(INamedTypeSymbol type, INamedTypeSymbol contract) =>
         type.AllInterfaces.Any(candidate => SymbolEqualityComparer.Default.Equals(candidate, contract));
-
-    private static bool Inherits(ITypeSymbol type, INamedTypeSymbol? expected)
-    {
-        if (expected is null)
-        {
-            return false;
-        }
-
-        for (var current = type as INamedTypeSymbol; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, expected))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static IEnumerable<INamedTypeSymbol> TypeAndInterfaces(ITypeSymbol type)
-    {
-        if (type is INamedTypeSymbol named)
-        {
-            yield return named;
-        }
-
-        foreach (var contract in type.AllInterfaces)
-        {
-            yield return contract;
-        }
-    }
 }

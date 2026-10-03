@@ -41,9 +41,6 @@ builder.Services.AddDbContextFactory<SchoolDbContext, TenantSchoolDbContextFacto
 builder.Services.AddDbContextFactory<ReadOnlySchoolDbContext, TenantReadOnlySchoolDbContextFactory>(
     options => options.UseSqlite(connectionString), ServiceLifetime.Scoped);
 RemoveDirectContextRegistration<ReadOnlySchoolDbContext>(builder.Services);
-builder.Services.AddDbContextFactory<QuerySchoolDbContext, TenantQuerySchoolDbContextFactory>(
-    options => options.UseSqlite(connectionString), ServiceLifetime.Scoped);
-RemoveDirectContextRegistration<QuerySchoolDbContext>(builder.Services);
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ClaimsCurrentUser>();

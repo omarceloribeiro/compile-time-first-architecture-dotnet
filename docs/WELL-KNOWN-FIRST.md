@@ -89,9 +89,11 @@ documentation and the installed version remain authoritative.
 ## Read boundaries that survive Well-Known First
 
 Distinguish business reads from incidental queries. Business reads default to the public EF Core
-surface over the original entities, using `IDbContextFactory<QuerySchoolDbContext>`. This subtype
-inherits the original model and adds a concrete persistence guard; it does not rename EF's query API
-or require intermediate read items. `IReadQueryExecutor` is not required on this path. Only an
+surface over the original entities, using the same `IDbContextFactory<SchoolDbContext>` as writes.
+Persistence and query-source tracking checks use the read-use-case marker and EF symbols at build
+time. All business read queries explicitly opt out of tracking at their source, including scalar
+queries; no business-read context subtype or intermediate read items are required.
+`IReadQueryExecutor` is not required on this path. Only an
 explicit medium/strong CQRS decision selects a separate business read model and executor; see
 [ADR 0013](adr/0013-business-reads-on-original-model.md).
 

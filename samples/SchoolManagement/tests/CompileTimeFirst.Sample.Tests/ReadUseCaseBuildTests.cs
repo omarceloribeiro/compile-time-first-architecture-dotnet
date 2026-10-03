@@ -8,8 +8,11 @@ namespace CompileTimeFirst.Sample.Tests;
 
 public sealed class ReadUseCaseBuildTests
 {
-    [Fact]
-    public async Task Consumer_build_fails_on_read_persistence_and_accepts_the_corrected_query()
+    [Theory]
+    [InlineData("db.SaveChanges();", "_ = db.Model;", ReadUseCaseAnalyzer.PersistenceId)]
+    [InlineData("_ = db.Set<Row>().Count();", "_ = db.Set<Row>().AsNoTracking().Count();", ReadUseCaseAnalyzer.NoTrackingId)]
+    public async Task Consumer_build_fails_on_read_violations_and_accepts_the_correction(
+        string invalidStatement, string validStatement, string diagnosticId)
     {
         var directory = Directory.CreateTempSubdirectory("ctfa-read-build-");
         try
@@ -25,21 +28,22 @@ public sealed class ReadUseCaseBuildTests
             var projectPath = Path.Combine(directory.FullName, "Consumer.csproj");
             await File.WriteAllTextAsync(projectPath, project.ToString());
             var sourcePath = Path.Combine(directory.FullName, "Report.cs");
-            const string source = """
+            var source = $$"""
                 using CompileTimeFirst.Sample.Application;
                 using Microsoft.EntityFrameworkCore;
+                public sealed class Row { public int Id { get; set; } }
                 public sealed class Report : IReadUseCase
                 {
-                    public void Run(DbContext db) { db.SaveChanges(); }
+                    public void Run(DbContext db) { {{invalidStatement}} }
                 }
                 """;
             await File.WriteAllTextAsync(sourcePath, source);
 
             var invalid = await BuildAsync(projectPath);
             Assert.NotEqual(0, invalid.ExitCode);
-            Assert.Contains("error CTFA007", invalid.Output, StringComparison.Ordinal);
+            Assert.Contains($"error {diagnosticId}", invalid.Output, StringComparison.Ordinal);
 
-            await File.WriteAllTextAsync(sourcePath, source.Replace("db.SaveChanges();", "_ = db.Model;", StringComparison.Ordinal));
+            await File.WriteAllTextAsync(sourcePath, source.Replace(invalidStatement, validStatement, StringComparison.Ordinal));
             var valid = await BuildAsync(projectPath);
             Assert.True(valid.ExitCode == 0, valid.Output);
         }

@@ -20,7 +20,7 @@ public sealed record QuestionReport(IReadOnlyList<QuestionReportRow> Rows);
 public sealed record ExportFileResult(string FileName, string ContentType, byte[] Content);
 
 public sealed class ExportQuestionsUseCase(
-    IDbContextFactory<QuerySchoolDbContext> contextFactory)
+    IDbContextFactory<SchoolDbContext> contextFactory)
     : UseCaseBase<ExportQuestionsRequest, ExportFileResult>,
       IExportQuestionsUseCase
 {
@@ -31,6 +31,7 @@ public sealed class ExportQuestionsUseCase(
         await using var db = await contextFactory.CreateDbContextAsync(cancellationToken);
 
         var rows = await db.Questions
+            .AsNoTracking()
             .Select(x => new QuestionReportRow(x.Id, x.Statement, x.Type.ToString(), x.CreatedAt))
             .ToListAsync(cancellationToken);
 

@@ -5,12 +5,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CompileTimeFirst.Sample.Data;
 
-public class SchoolDbContext : IdentityDbContext<SchoolUser, IdentityRole<Guid>, Guid>, ITenantScope
+public sealed class SchoolDbContext(DbContextOptions<SchoolDbContext> options)
+    : IdentityDbContext<SchoolUser, IdentityRole<Guid>, Guid>(options), ITenantScope
 {
-    public SchoolDbContext(DbContextOptions<SchoolDbContext> options) : base(options) { }
-
-    protected SchoolDbContext(DbContextOptions options) : base(options) { }
-
     /// <summary>Assigned by the factory that creates this context, once per operation.</summary>
     public Guid? TenantId { get; set; }
 

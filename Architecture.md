@@ -71,7 +71,7 @@ This principle applies differently at each boundary:
   lifetime across EF Core and remote/OData providers. `IReadQueryExecutor` owns the separate async
   terminal/materialization boundary because those providers do not share a provider-neutral async
   terminal API.
-- **Business reads:** use the original EF entity model through a context with SaveChanges disabled.
+- **Business reads:** use the original EF entity model and context, with build-time persistence checks.
   Project directly to the use-case result. A separate business read model and query executor require
   an explicit CQRS decision; they are not the default consequence of separating actor intentions.
 - **UI:** use Blazor and the selected component library directly. Product components are valid when
@@ -195,20 +195,35 @@ Dashboards, indicators, home summaries, reports and progress views are business 
 ```text
 UI / API
   → Read Use Case
-  → IDbContextFactory<QuerySchoolDbContext>
+  → IDbContextFactory<SchoolDbContext>
   → original entities and EF Core queries
   → typed result
 ```
 
-`QuerySchoolDbContext` is a sealed subtype of the original `SchoolDbContext`. It inherits the whole
-model, including Identity, relationships and tenant filters, defaults to NoTracking and overrides all
-SaveChanges overloads to throw. It adds no intermediate read DTOs, repository or query executor.
-The original context owns schema creation and migrations; the subtype has no independent schema.
+Business reads and writes use the same original `SchoolDbContext` and factory, with a separate
+context instance for each operation. The original model includes Identity, relationships and tenant
+filters, and owns schema creation and migrations. There is no business-read context subtype,
+intermediate read DTO, repository or query executor on this default path.
+
+Every EF query in a read use case starts with `AsNoTracking()` immediately after its `DbSet` or
+`Set<T>()` source, before composition or assigning the query to a local variable. Use
+`AsNoTrackingWithIdentityResolution()` when identity resolution is needed. Each source in a join
+or subquery follows the same rule. `FromSql*` needs a DbSet receiver, so its result is the source
+that receives the modifier. Counts, existence checks and scalar-only projections also follow this
+convention; the modifier is redundant there, but keeps one predictable pattern for agents and review.
+
+CTFA009 rejects obvious source violations and EF `AsTracking()` calls or method references in read
+use cases. It checks semantic symbols and immediate query composition, without inferring entity
+materialization or tracking state through arbitrary helpers. Queries returned by helpers still
+follow the convention, with agents and review responsible for cases outside analyzer coverage.
+Keep the shared factory's tracking default for writes and apply the modifier per read query.
+NoTracking does not disable SaveChanges or prevent explicit side effects in helpers, logging or
+middleware; the rule does not apply to those components unless they are inside a read-use-case type.
 
 | Operation | Default data access |
 |---|---|
 | Write use case | Original `SchoolDbContext` through its factory |
-| Business read use case | `QuerySchoolDbContext` through its factory; EF terminals |
+| Business read use case | Original `SchoolDbContext` through its factory; EF terminals |
 | Business read with explicit medium/strong CQRS | Separate read model, read factory and `IReadQueryExecutor` |
 | Incidental read | `IReadDb`, read factory and `IReadQueryExecutor` |
 
@@ -220,14 +235,14 @@ The sample demonstrates the default shared entity model. See ADR 0013.
 Every specific use-case interface inherits either `IReadUseCase` or `IWriteUseCase`, both `IUseCase`.
 Implementations still inherit `UseCaseBase<TRequest,TResult>` and use its public pipeline. CTFA006
 requires exactly one classification on concrete implementations. CTFA007 rejects EF saves, bulk
-update/delete and ExecuteSql-family calls or method references inside read use cases. CTFA008
-rejects dependencies on the original writable context or its factory. The analyzer is installed in
+update/delete and ExecuteSql-family calls or method references inside read use cases. The original
+context and its factory are valid business-read dependencies. The analyzer is installed in
 Application as well as the presentation projects.
 
-These guarantees are deliberately bounded. The runtime override blocks SaveChanges, including calls
-through base references. Bulk/SQL writes bypass SaveChanges and are covered by the analyzer only in
-the analyzed read-use-case code. External service call graphs, reflection and arbitrary ADO.NET are
-not covered transitively. This is protection against accidental writes, not a database permission.
+These guarantees are deliberately bounded. There is no runtime save guard on the original context.
+SaveChanges, bulk and SQL writes are rejected only in the analyzed read-use-case code. External
+service call graphs, reflection and arbitrary ADO.NET are not covered transitively. A read use case
+must not delegate persistence to another service; review covers these indirect effects.
 
 ## 6. Component boundary
 
@@ -292,7 +307,7 @@ disposable (§6), leaving the constructive half in the screen would lose it on t
 
 Two mechanisms, covering the two directions.
 
-**Reads** are covered by a named EF Core global query filter on `TenantId`, applied by all three contexts.
+**Reads** are covered by a named EF Core global query filter on `TenantId`, applied by both contexts.
 The comparison targets a property of the executing context, not a value captured when the model was
 built: EF caches the model per context type, so a captured value would freeze the first tenant that
 ever queried and serve its rows to everyone afterwards.
@@ -334,7 +349,7 @@ state changes. The client never chooses its own tenant.
 ## 7. Incidental read context
 
 `ReadOnlySchoolDbContext` implements the approved incidental read surface. It is distinct from the
-original-model business query context described in §5.2. This incidental context:
+original context used by business reads and writes in §5.2. This incidental context:
 
 - defaults to `NoTracking`;
 - rejects `SaveChanges`;
