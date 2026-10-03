@@ -21,7 +21,7 @@ public sealed class ReadUseCaseAnalyzer : DiagnosticAnalyzer
 
     private static readonly DiagnosticDescriptor Persistence = new(
         PersistenceId, "A read use case cannot persist",
-        "Read use case code cannot reference '{0}'; persist through a write use case",
+        "Read use case code cannot reference '{0}'; remove the mutation from the read flow, or classify the operation as IWriteUseCase if its actor intention is to write",
         "Architecture", DiagnosticSeverity.Error, isEnabledByDefault: true);
 
     private static readonly DiagnosticDescriptor NoTracking = new(

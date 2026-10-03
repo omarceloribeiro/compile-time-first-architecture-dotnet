@@ -119,7 +119,7 @@ Examples:
 ```text
 UI / API
   → typed request
-  → IUseCase
+  → IWriteUseCase
   → UseCaseBase<TRequest,TResult>
   → ExecuteCoreAsync
   → IDbContextFactory<WriteDbContext>

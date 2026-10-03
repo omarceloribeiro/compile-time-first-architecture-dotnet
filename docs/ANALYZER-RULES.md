@@ -127,6 +127,11 @@ the relational extension type is also recognized when it supplies those methods.
 casts, lambdas, local functions, private methods and nested helpers within a read type are covered.
 Unrelated methods with the same name are allowed. Normal EF read terminals remain valid in use cases.
 
+To fix the diagnostic, remove the mutation from the read flow. If the actor's intention is to change
+state, classify that operation as `IWriteUseCase` instead. Do not delegate persistence to a write
+use case or helper from inside the read use case; that remains forbidden even when the analyzer
+cannot follow the call.
+
 Business reads use the original context and factory. Their persistence protection is static;
 there is no business-read subtype or runtime SaveChanges override. The proposed CTFA008 dependency
 restriction was removed before release because the original factory is now the default read path.
