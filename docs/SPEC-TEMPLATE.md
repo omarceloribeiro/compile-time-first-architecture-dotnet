@@ -6,6 +6,20 @@
 
 ## Contexto
 
+## Classificação e acesso aos dados
+
+Informe `IReadUseCase` ou `IWriteUseCase`. Leituras de negócio usam, por padrão, o modelo original
+e a mesma factory de contexto das escritas, com terminais EF e projeção direta no resultado.
+Use `AsNoTracking()` (ou `AsNoTrackingWithIdentityResolution()`) imediatamente após cada origem da
+consulta, antes de compor ou guardar em variável, inclusive para contagens e projeções só de valores.
+Em `FromSql*`, aplique após essa chamada. CTFA009 acusa as omissões diretas e o uso de `AsTracking`;
+helpers e fluxos de consultas fora dessa cobertura continuam sujeitos à convenção e ao review.
+O analyzer também bloqueia chamadas diretas de persistência nos reads. Consultas incidentais usam
+a superfície de leitura e o executor.
+
+Para um modelo de leitura de negócio separado com executor, referencie a decisão inicial de CQRS
+médio/forte do projeto ou um ADR posterior aprovado. Não deduza CQRS do frontend ou dos endpoints.
+
 ## Pré-condições
 
 ## Fluxo principal

@@ -86,7 +86,7 @@ public static class CompositionRoot
                     typeof(IUseCase).Assembly,
                     typeof(SampleRunner).Assembly
                 ],
-                MarkerInterfaces: [typeof(IUseCase)],
+                MarkerInterfaces: [typeof(IUseCase), typeof(IReadUseCase), typeof(IWriteUseCase)],
                 ValidateBlazorComponents: false));
     }
 

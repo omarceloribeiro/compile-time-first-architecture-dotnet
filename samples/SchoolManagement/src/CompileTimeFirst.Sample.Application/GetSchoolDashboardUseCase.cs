@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CompileTimeFirst.Sample.Application.Dashboard;
 
-public interface IGetSchoolDashboardUseCase : IUseCase
+public interface IGetSchoolDashboardUseCase : IReadUseCase
 {
     Task<GetSchoolDashboardResult> ExecuteAsync(
         GetSchoolDashboardRequest request,
@@ -14,7 +14,7 @@ public sealed record GetSchoolDashboardRequest;
 public sealed record GetSchoolDashboardResult(int Subjects, int Grades, int Questions);
 
 public sealed class GetSchoolDashboardUseCase(
-    IDbContextFactory<ReadOnlySchoolDbContext> contextFactory)
+    IDbContextFactory<SchoolDbContext> contextFactory)
     : UseCaseBase<GetSchoolDashboardRequest, GetSchoolDashboardResult>,
       IGetSchoolDashboardUseCase
 {
@@ -24,9 +24,9 @@ public sealed class GetSchoolDashboardUseCase(
     {
         await using var db = await contextFactory.CreateDbContextAsync(cancellationToken);
 
-        var subjectCount = await db.Subjects.CountAsync(cancellationToken);
-        var gradeCount = await db.Grades.CountAsync(cancellationToken);
-        var questionCount = await db.Questions.CountAsync(cancellationToken);
+        var subjectCount = await db.Subjects.AsNoTracking().CountAsync(cancellationToken);
+        var gradeCount = await db.Grades.AsNoTracking().CountAsync(cancellationToken);
+        var questionCount = await db.Questions.AsNoTracking().CountAsync(cancellationToken);
 
         return new GetSchoolDashboardResult(subjectCount, gradeCount, questionCount);
     }

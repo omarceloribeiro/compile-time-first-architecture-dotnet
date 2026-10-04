@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <ProjectReference Include="../CompileTimeFirst.Sample.Analyzers/CompileTimeFirst.Sample.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <ProjectReference Include="../CompileTimeFirst.Sample.Domain/CompileTimeFirst.Sample.Domain.csproj" />
     <ProjectReference Include="../CompileTimeFirst.Sample.Data/CompileTimeFirst.Sample.Data.csproj" />
   </ItemGroup>

@@ -2,6 +2,9 @@
 
 ## Status
 
+Read-boundary scope clarified by ADR 0013: the provider-independent stack is the incidental-read
+default, not a requirement for ordinary business read use cases.
+
 Accepted for v0.4.
 
 ## Context

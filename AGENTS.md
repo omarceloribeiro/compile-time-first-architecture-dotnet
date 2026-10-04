@@ -46,7 +46,9 @@ Each use-case production file normally contains:
 - implementation;
 - private validation and helper methods.
 
-All use-case interfaces implement `IUseCase`.
+All specific use-case interfaces implement exactly one of `IReadUseCase` or `IWriteUseCase`, both
+derived from `IUseCase`. Concrete implementations without a classification, or with both, fail the
+build (CTFA006). Do not infer classification from a class name.
 All implementations inherit `UseCaseBase<TRequest,TResult>`.
 Implement `ExecuteCoreAsync`; do not replace the public pipeline.
 
@@ -63,7 +65,33 @@ Write use cases inject:
 IDbContextFactory<SchoolDbContext>
 ```
 
-Read code uses a read-only factory or approved read abstraction.
+Read use cases default to the same `IDbContextFactory<SchoolDbContext>`. Query the original entities
+with EF Core directly and project into the use-case result; do not add a business-read context
+subtype, intermediate read projections or require `IReadQueryExecutor` here.
+
+Start every EF query in a read use case with `AsNoTracking()` (or
+`AsNoTrackingWithIdentityResolution()` when needed), immediately after the `DbSet` or `Set<T>()`
+source and before composition or storing the query in a local variable. Apply it to each source in
+joins and subqueries too. For `FromSql*`, apply it immediately after that call, which needs a DbSet.
+Counts, existence checks and scalar-only projections follow the same convention even though they
+do not track entities. Do not use `AsTracking()` in read use cases. CTFA009 reports obvious source
+violations and EF AsTracking calls/method references as errors; it does not follow query data flow
+through arbitrary helpers. Agents and reviewers enforce the convention beyond that coverage.
+Keep the original context/factory's tracking default for writes; do not change shared options.
+
+A separate business read model with a read factory and `IReadQueryExecutor` requires medium/strong
+CQRS explicitly selected in the initial project architecture, or a later approved ADR. Separate
+read/write intentions, an API or a Blazor render mode do not imply that choice. No runtime switch
+selects this architecture. Incidental reads still use `IReadDb` and `IReadQueryExecutor`.
+
+CTFA007 rejects EF SaveChanges, ExecuteUpdate/Delete and ExecuteSql-family calls and method
+references in read use cases. Install the analyzer in projects implementing use cases, including
+Application. The original context and its factory are valid business-read dependencies.
+
+These are bounded compile-time protections; the original context has no runtime save guard.
+External helper call graphs, reflection and arbitrary ADO.NET are not covered transitively.
+A read use case must not delegate persistence to a helper or another use case. NoTracking does not
+prevent explicit writes or side effects in logging/middleware. See ADR 0013.
 
 Each operation creates and disposes its own context.
 
@@ -79,8 +107,9 @@ Use direct `IReadDb` queries for incidental UI needs:
 - one-use projections.
 
 `IReadDb` and `IReadDbFactory` are intentional provider/lifetime boundaries. Preserve them even in
-Server-only feature code; do not replace them with an EF-specific DbContext factory. They keep the
-same feature compatible with operation-scoped EF and remote/OData read providers.
+Server-only incidental read code; do not replace them there with an EF-specific DbContext factory.
+They keep incidental queries compatible with operation-scoped EF and remote/OData read providers.
+This rule does not extend to the default business read use case.
 
 Every incidental read terminates through `IReadQueryExecutor`. Do not call EF Core, OData or another
 provider's terminal extensions from a page or component.
@@ -279,7 +308,9 @@ Prefer explicit registration. Do not introduce assembly scanning merely to avoid
 Every executable composition root must enable `ValidateOnBuild` and `ValidateScopes`, expose the
 repository's `--validate-di` mode, and opt in to `ValidateDependencyInjectionOnBuild`. Validate all
 implementations marked by `IUseCase`, plus Blazor constructor, `@inject` and keyed-service
-dependencies. There is no marker interface for UI services: with screen logic inside components,
+dependencies. Include `IUseCase`, `IReadUseCase` and `IWriteUseCase` in the gate's marker list;
+validate specific use-case services without registering classification markers in DI.
+There is no marker interface for UI services: with screen logic inside components,
 `@inject` compiles to an `[Inject]` property and the gate already resolves it. Do not use `SkipDependencyInjectionValidation` when
 validating work. A build is not successful when the DI gate was bypassed or failed.
 

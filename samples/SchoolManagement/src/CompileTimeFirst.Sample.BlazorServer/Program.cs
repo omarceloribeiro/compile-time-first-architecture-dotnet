@@ -149,7 +149,7 @@ static void ValidateComposition(IServiceProvider provider)
                 typeof(IUseCase).Assembly,
                 typeof(App).Assembly
             ],
-            MarkerInterfaces: [typeof(IUseCase)]));
+            MarkerInterfaces: [typeof(IUseCase), typeof(IReadUseCase), typeof(IWriteUseCase)]));
 }
 
 static void MapAuthenticationEndpoints(WebApplication app)

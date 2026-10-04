@@ -1,4 +1,6 @@
 using CompileTimeFirst.Sample.Data;
+using CompileTimeFirst.Sample.Application;
+using CompileTimeFirst.Sample.Application.Dashboard;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -10,6 +12,22 @@ namespace CompileTimeFirst.Sample.Tests;
 
 public sealed class PresentationHostIsolationTests
 {
+    [Fact]
+    public async Task Server_resolves_business_read_factory_without_registering_markers()
+    {
+        using var host = new WebApplicationFactory<BlazorServerEntryPoint>();
+        await using var scope = host.Services.CreateAsyncScope();
+        Assert.Null(scope.ServiceProvider.GetService<IReadUseCase>());
+        Assert.Null(scope.ServiceProvider.GetService<IWriteUseCase>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IGetSchoolDashboardUseCase>());
+        var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<SchoolDbContext>>();
+        await using var first = await factory.CreateDbContextAsync();
+        await using var second = await factory.CreateDbContextAsync();
+        Assert.NotSame(first.Database.GetDbConnection(), second.Database.GetDbConnection());
+        Assert.Empty(await first.Subjects.ToListAsync());
+        Assert.Empty(await second.Subjects.ToListAsync());
+    }
+
     [Fact]
     public void Server_and_auto_use_distinct_identity_cookie_names()
     {

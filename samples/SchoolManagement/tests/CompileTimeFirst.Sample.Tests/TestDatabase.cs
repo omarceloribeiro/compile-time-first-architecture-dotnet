@@ -65,7 +65,6 @@ internal sealed class TestDatabase : IAsyncDisposable
         var readOptions = new DbContextOptionsBuilder<ReadOnlySchoolDbContext>()
             .UseSqlite(connectionString)
             .Options;
-
         var currentUser = new TestCurrentUser(tenantId ?? TenantA);
         var database = new TestDatabase(keeperConnection, writeOptions, readOptions, currentUser);
 
